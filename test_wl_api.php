@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+define('WL_FORCE_ENV', 'sandbox');
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/sub_worldline_config.php';
 sec_session_start();
@@ -51,6 +52,11 @@ $requestUrl = null;
 $history = is_array($_SESSION['tt_wl_api_test_log'] ?? null) ? $_SESSION['tt_wl_api_test_log'] : [];
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $action = tt_test_string('action', 'run');
+    if ($action === 'clear_log') {
+        $_SESSION['tt_wl_api_test_log'] = [];
+        $history = [];
+    } else {
     $path = '/' . $state['api_version'] . '/' . rawurlencode($state['pspid']) . '/products/' . rawurlencode((string) $state['product_id']);
     $query = [
         'countryCode' => $state['country'],
@@ -100,6 +106,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             'body' => ['error' => $e->getMessage()],
         ]);
         $history = $_SESSION['tt_wl_api_test_log'];
+    }
     }
 }
 ?>
@@ -340,6 +347,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         <div class="meta-row"><span class="meta-label">Runtime env</span><span class="meta-value"><?= htmlspecialchars((string) (defined('WL_ENV') ? WL_ENV : 'unknown')) ?></span></div>
         <div class="meta-row"><span class="meta-label">Loaded PSPID</span><span class="meta-value"><?= htmlspecialchars((string) (defined('WL_MERCHANT_ID') ? WL_MERCHANT_ID : '')) ?></span></div>
         <div class="meta-row"><span class="meta-label">Endpoint</span><span class="meta-value"><?= htmlspecialchars((string) (defined('WL_ENDPOINT') ? WL_ENDPOINT : '')) ?></span></div>
+        <div class="meta-row"><span class="meta-label">Forced mode</span><span class="meta-value"><?= defined('WL_FORCE_ENV') ? htmlspecialchars((string) WL_FORCE_ENV) : 'none' ?></span></div>
         <div class="meta-row"><span class="meta-label">Google Pay merchant</span><span class="meta-value"><?= htmlspecialchars((string) (defined('TT_GOOGLE_PAY_MERCHANT_ID') ? TT_GOOGLE_PAY_MERCHANT_ID : '')) ?></span></div>
       </aside>
     </section>
@@ -394,6 +402,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
           <div class="actions">
             <button class="submit-btn" type="submit" name="action" value="run">Confirm / Post Test</button>
             <button class="submit-btn secondary" type="submit" name="action" value="run">Run Current Inputs</button>
+            <button class="submit-btn secondary" type="submit" name="action" value="clear_log">Clear Result Log</button>
           </div>
         </form>
       </div>

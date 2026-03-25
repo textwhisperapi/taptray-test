@@ -64,8 +64,15 @@ if ($taptrayWorldlineAutoloadLoaded && class_exists('Worldline\\Connect\\Sdk\\Cl
     class_alias('Worldline\\Connect\\Sdk\\CommunicatorConfiguration', 'TapTrayWorldlineCommunicatorConfiguration');
 }
 
-$host   = $_SERVER['HTTP_HOST'] ?? '';
+$host = $_SERVER['HTTP_HOST'] ?? '';
+$forcedEnv = defined('WL_FORCE_ENV') ? strtolower(trim((string) WL_FORCE_ENV)) : '';
 $isLive = (stripos($host, 'textwhisper.com') !== false) || (stripos($host, 'taptray.com') !== false && stripos($host, 'test.taptray.com') === false);
+
+if ($forcedEnv === 'sandbox' || $forcedEnv === 'test') {
+    $isLive = false;
+} elseif ($forcedEnv === 'live') {
+    $isLive = true;
+}
 
 if ($isLive) {
     define('WL_API_KEY_ID',   wl_env_value('TT_WL_LIVE_API_KEY_ID', ''));
