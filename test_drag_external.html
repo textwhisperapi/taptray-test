@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>External Drag → List Test</title>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    display: flex;
+    gap: 24px;
+    padding: 20px;
+  }
+
+  .panel {
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 10px;
+    width: 280px;
+  }
+
+  .panel h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+  }
+
+  ul {
+    list-style: none;
+    padding-left: 16px;
+  }
+
+  li {
+    padding: 6px 8px;
+    margin: 4px 0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fafafa;
+    cursor: grab;
+  }
+
+  li.drive-file {
+    background: #eef6ff;
+  }
+
+  .list-sub-item {
+    background: #eaffea;
+  }
+
+  .ghost {
+    opacity: 0.4;
+  }
+</style>
+</head>
+<body>
+
+<!-- SOURCE TREE -->
+<div class="panel">
+  <h3>Source Tree (external)</h3>
+
+  <ul id="sourceTree">
+    <li>
+      Folder A
+      <ul>
+        <li class="drive-file" data-value="101" data-source="external">
+          File Alpha
+        </li>
+        <li class="drive-file" data-value="102" data-source="external">
+          File Beta
+        </li>
+      </ul>
+    </li>
+
+    <li>
+      Folder B
+      <ul>
+        <li class="drive-file" data-value="201" data-source="external">
+          File Gamma
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+
+<!-- TARGET LIST -->
+<div class="panel">
+  <h3>Target List (internal)</h3>
+  <ul id="targetList" class="list-items-wrapper" data-token="LIST-1">
+  </ul>
+</div>
+
+<script>
+/* ================= SOURCE ================= */
+
+document.querySelectorAll("#sourceTree ul").forEach(ul => {
+  new Sortable(ul, {
+    group: {
+      name: "items",
+      pull: "clone",
+      put: false
+    },
+    draggable: ".drive-file",
+    animation: 150,
+    sort: false,
+    ghostClass: "ghost",
+    fallbackOnBody: true,
+
+    onClone(evt) {
+      const li = evt.clone;
+      li.classList.add("list-sub-item");
+    }
+  });
+});
+
+/* ================= TARGET ================= */
+
+new Sortable(document.getElementById("targetList"), {
+  group: {
+    name: "items",
+    pull: false,
+    put: true
+  },
+  animation: 150,
+  ghostClass: "ghost",
+
+  onAdd(evt) {
+    const item = evt.item;
+
+    const surrogate = item.dataset.value;
+    const source    = item.dataset.source;
+    const target    = evt.to.dataset.token;
+
+    // IMPORTANT: remove visual clone
+    item.remove();
+
+    console.log("DROP:", { surrogate, source, target });
+
+    // Simulate TextWhisper behavior
+    const real = document.createElement("li");
+    real.className = "list-sub-item";
+    real.textContent = `Surrogate ${surrogate} added to ${target}`;
+
+    evt.to.appendChild(real);
+  }
+});
+</script>
+
+</body>
+</html>

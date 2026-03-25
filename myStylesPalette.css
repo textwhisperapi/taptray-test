@@ -1,0 +1,944 @@
+/* =============================== */
+/* 🎨 Floating Drawing Palette     */
+/* =============================== */
+
+#drawingPalette {
+  position: fixed;
+  transform: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: rgba(40, 40, 40, 0.95);
+  border: 1px solid #555;
+  border-radius: 10px;
+  padding: 5px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  z-index: 99999;
+  transition: transform 0.25s ease, right 0.25s ease, bottom 0.25s ease, box-shadow 0.2s ease;
+  will-change: left, top;
+  cursor: default;
+  max-width: 90vw;
+}
+
+#drawingPalette.dragging {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+  cursor: grabbing;
+}
+
+/* --- Section & Button Layout --- */
+#drawingPalette .Palette-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+#drawingPalette .Palette-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#drawingPalette .Palette-section.actions {
+  width: 100%;
+  min-width: 32px;
+  align-items: stretch;
+}
+
+#drawingPalette .Palette-section.quick-action {
+  margin-bottom: 4px;
+}
+
+#drawingPalette .Palette-action-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  margin-top: 3px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.24);
+}
+
+#drawingPalette .Palette-btn[data-action="togglefileactions"] {
+  width: 100%;
+  height: 18px;
+  min-height: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+#drawingPalette .Palette-btn[data-action="togglefileactions"]:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.22);
+  transform: none;
+}
+
+#drawingPalette .Palette-btn[data-action="togglefileactions"] svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.1px;
+}
+
+#drawingPalette .Palette-action-panel {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+#drawingPalette .Palette-action-wrap.open .Palette-action-panel {
+  display: flex;
+}
+
+/* If palette is taller than viewport, compact tool lists to 2 columns. */
+#drawingPalette.palette-compact .Palette-section.tools {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  justify-items: center;
+  gap: 6px;
+}
+
+/* Compact: reduce control sizes to better fit short screens. */
+#drawingPalette.palette-compact {
+  padding: 4px;
+  gap: 4px;
+}
+
+#drawingPalette.palette-compact .Palette-section {
+  gap: 4px;
+}
+
+
+#drawingPalette.palette-compact .Palette-action-wrap,
+#drawingPalette.palette-compact .Palette-action-panel {
+  gap: 4px;
+}
+
+#drawingPalette.palette-compact .Palette-btn[data-action="togglefileactions"] {
+  height: 16px;
+  min-height: 16px;
+}
+
+#drawingPalette.palette-compact .Palette-actor {
+  margin-bottom: 2px;
+}
+
+#drawingPalette.palette-compact .Palette-btn,
+#drawingPalette.palette-compact input[type="color"],
+#drawingPalette.palette-compact .Palette-actor-btn {
+  width: 28px;
+  height: 28px;
+}
+
+#drawingPalette.palette-compact svg {
+  width: 14px;
+  height: 14px;
+}
+
+#drawingPalette.palette-compact .Palette-drag-handle {
+  height: 16px;
+  margin-bottom: 4px;
+}
+
+/* Extra shrink step when still too tall after compact mode. */
+#drawingPalette.palette-shrink {
+  padding: 3px;
+  gap: 3px;
+}
+
+#drawingPalette.palette-shrink .Palette-btn,
+#drawingPalette.palette-shrink input[type="color"],
+#drawingPalette.palette-shrink .Palette-actor-btn {
+  width: 24px;
+  height: 24px;
+}
+
+#drawingPalette.palette-shrink svg {
+  width: 12px;
+  height: 12px;
+}
+
+#drawingPalette.palette-shrink .Palette-drag-handle {
+  height: 14px;
+}
+
+#drawingPalette .Palette-actor {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+#drawingPalette .Palette-actor-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: #1e1e1e;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+#drawingPalette .Palette-actor-btn.is-owner-layer {
+  border-color: #2cc36b;
+  box-shadow: 0 0 0 2px rgba(44, 195, 107, 0.25);
+}
+
+/* In edit mode on My layer, keep actor ring aligned with green overlay frame. */
+body.edit-mode:not(.owner-annotation-layer) #drawingPalette .Palette-actor-btn.is-self-layer {
+  border-color: #2cc36b;
+  box-shadow: 0 0 0 2px rgba(44, 195, 107, 0.25);
+}
+
+#drawingPalette .Palette-actor-menu {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  min-width: 128px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid #555;
+  border-radius: 8px;
+  background: rgba(26, 26, 26, 0.98);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  z-index: 100001;
+}
+
+#drawingPalette .Palette-actor-menu.open {
+  display: flex;
+}
+
+#drawingPalette .Palette-actor-menu-label {
+  color: #d7d7d7;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 2px 2px;
+}
+
+#drawingPalette .Palette-actor-menu-btn {
+  border: 1px solid #555;
+  border-radius: 6px;
+  background: #222;
+  color: #eee;
+  font-size: 12px;
+  padding: 5px 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+#drawingPalette .Palette-actor-menu-btn.active {
+  border-color: #2cc36b;
+  background: rgba(44, 195, 107, 0.22);
+}
+
+#drawingPalette .Palette-actor-menu-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+#drawingPalette .Palette-actor-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+#drawingPalette .Palette-btn {
+  width: 32px;
+  height: 32px;
+  background: #222;
+  border: 1px solid #444;
+  border-radius: 6px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #eee;
+  transition: all 0.2s ease;
+}
+
+#drawingPalette .Palette-btn[data-action="save"].has-unsaved {
+  border-color: #ff9f43;
+  box-shadow: 0 0 0 1px rgba(255, 159, 67, 0.45), 0 0 12px rgba(255, 159, 67, 0.65);
+}
+
+#drawingPalette .Palette-sign-current {
+  position: static;
+  max-width: 30px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: #fff;
+  opacity: 1;
+}
+
+#drawingPalette .Palette-sign-current.is-fermata {
+  font-size: 26px;
+  line-height: 1;
+}
+
+#drawingPalette .Palette-btn[data-tool="sign"].is-fermata-selected {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+#drawingPalette .Palette-sign-current.is-compact-sign {
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+#drawingPalette .Palette-sign-current.is-italian-sign {
+  font-family: "Palatino Linotype", "Book Antiqua", "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 600;
+}
+
+#drawingPalette .Palette-btn:hover {
+  background: #3d6091;
+  transform: scale(1.08);
+}
+
+#drawingPalette .Palette-btn.active {
+  background: var(--Palette-color, #007bff);
+  border-color: var(--Palette-color, #007bff);
+  box-shadow: 0 0 10px var(--Palette-color, #007bff);
+  color: #fff;
+}
+
+/* But eraser should have neutral highlight (not blue) */
+#drawingPalette .Palette-btn[data-tool="eraser"].active {
+  background: #ff4d4d;
+  border-color: #ff4d4d;
+  box-shadow: 0 0 10px rgba(255, 77, 77, 0.6);
+  color: #fff;
+}
+
+#drawingPalette .Palette-btn[data-action="closepalette"] {
+  background: #2563eb;
+  border-color: #2563eb;
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.45);
+  color: #fff;
+}
+
+#drawingPalette .Palette-btn[data-action="closepalette"]:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  box-shadow: 0 0 12px rgba(29, 78, 216, 0.55);
+}
+
+/* 🔹 Colored tools (reflect color picker) */
+#drawingPalette .Palette-btn[data-tool="pen"].active,
+#drawingPalette .Palette-btn[data-tool="highlight"].active,
+#drawingPalette .Palette-btn[data-tool="text"].active,
+#drawingPalette .Palette-btn[data-tool="slur"].active,
+#drawingPalette .Palette-btn[data-tool="sign"].active {
+  background: var(--Palette-color, #007bff);
+  border-color: var(--Palette-color, #007bff);
+  box-shadow: 0 0 10px var(--Palette-color, rgba(0, 123, 255, 0.5));
+}
+
+#drawingPalette svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.2px;
+}
+
+/* --- Color Picker --- */
+#drawingPalette input[type="color"] {
+  width: 28px;
+  height: 28px;          /* square shape */
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  background: none;
+}
+
+/* --- Pen/Highlight/Text Popup --- */
+#drawingPalette .Palette-pen-wrapper,
+#drawingPalette .Palette-highlight-wrapper,
+#drawingPalette .Palette-text-wrapper,
+#drawingPalette .Palette-slur-wrapper,
+#drawingPalette .Palette-sign-wrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#drawingPalette .pen-options {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  transform: translate(8px, -50%) scaleX(1);
+  transform-origin: center left;
+  background: rgba(30, 30, 30, 0.97);
+  border: 1px solid #555;
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 1;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  z-index: 100000;
+}
+
+#drawingPalette .pen-options.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(0, -50%) scaleX(0.8);
+}
+
+#drawingPalette .pen-options.slur-options {
+  max-width: 260px;
+  flex-wrap: wrap;
+}
+
+#drawingPalette .pen-options.sign-options {
+  min-width: 170px;
+  max-width: 220px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+#drawingPalette .sign-dropdown {
+  width: 100%;
+  font-family: "Palatino Linotype", "Book Antiqua", "Times New Roman", serif;
+}
+
+
+#drawingPalette .pen-options.slur-options input[type="range"] {
+  width: 90px;
+}
+
+#drawingPalette .slur-select {
+  background: #222;
+  color: #eee;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 2px 6px;
+  height: 28px;
+}
+
+#drawingPalette.expand-left .pen-options {
+  left: auto;
+  right: 100%;
+  transform: translate(-8px, -50%) scaleX(1);
+  transform-origin: center right;
+}
+
+#drawingPalette.expand-left .pen-options.hidden {
+  transform: translate(0, -50%) scaleX(0.8);
+}
+
+#drawingPalette .pen-label {
+  color: #eee;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+#drawingPalette #penWidth {
+  width: 80px;
+}
+
+#drawingPalette #penWidthValue {
+  color: #aaa;
+  font-size: 12px;
+  width: 34px;
+  text-align: right;
+}
+
+/* --- Range & Color inside popups --- */
+#drawingPalette .pen-options input[type="range"] {
+  width: 80px;
+  accent-color: var(--Palette-color, #007bff);
+}
+
+#drawingPalette .pen-options input[type="color"] {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-left: 6px;
+  background: transparent;
+}
+
+/* --- Text Options Panel --- */
+#textOptionsPanel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+/* Text preview label beside slider */
+#drawingPalette .text-size-preview {
+  display: inline-block;
+  font-family: Arial, sans-serif;
+  font-weight: 600;
+  margin-left: -30px;
+  vertical-align: middle;
+  color: #fff;
+  opacity: 0.9;
+  user-select: none;
+  line-height: 1;
+  text-shadow: 0 0 3px rgba(0,0,0,0.4);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+/* --- Pen width visual preview --- */
+#drawingPalette .pen-slider-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#drawingPalette .pen-slider-wrapper input[type="range"] {
+  width: 100%;
+}
+
+#drawingPalette .pen-width-preview,
+#drawingPalette #penWidthPreview {
+  display: block;
+  width: 100%;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 4px;
+  background: var(--Palette-color, #007bff);
+  transition: height 0.15s ease, background 0.15s ease;
+}
+
+/* --- Draggable Handle --- */
+#drawingPalette .Palette-drag-handle {
+  width: 100%;
+  height: 20px;
+  cursor: grab;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #bbb;
+  background: linear-gradient(to bottom, rgba(80,80,80,0.4), rgba(60,60,60,0.1));
+  border-radius: 10px 10px 0 0;
+  user-select: none;
+  margin-bottom: 4px;
+}
+
+#drawingPalette .Palette-drag-handle:active {
+  cursor: grabbing;
+  color: var(--Palette-color, #007bff);
+}
+
+/* Tablet touch targets (coarse pointers only) */
+@media (max-width: 1024px) and (pointer: coarse) {
+  #drawingPalette {
+    transform: none;
+    padding: 8px;
+    gap: 8px;
+    border-radius: 16px;
+    scale: 1;
+  }
+
+  #drawingPalette .Palette-btn,
+  #drawingPalette input[type="color"] {
+    width: 44px;
+    height: 44px;
+  }
+
+  #drawingPalette svg {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* Phones touch targets (coarse pointers only) */
+@media (max-width: 600px) and (pointer: coarse) {
+  #drawingPalette {
+    top: 10px;
+    right: 8px;
+    padding: 10px;
+    gap: 7px;
+    border-radius: 14px;
+    scale: 0.95;
+  }
+
+  #drawingPalette .Palette-btn,
+  #drawingPalette input[type="color"] {
+    width: 40px;
+    height: 40px;
+  }
+
+  #drawingPalette svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Small phones touch targets (coarse pointers only) */
+@media (max-width: 400px) and (pointer: coarse) {
+  #drawingPalette {
+    top: 8px;
+    right: 6px;
+    padding: 4px;
+    gap: 4px;
+    scale: 0.9;
+  }
+
+  #drawingPalette .Palette-btn,
+  #drawingPalette input[type="color"] {
+    width: 30px;
+    height: 30px;
+  }
+
+  #drawingPalette svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+
+/*The above is the old css from myStyles.css*/
+
+/* ------------------------------------------------------------
+   Comment Palette (includes Draw tool)
+   ------------------------------------------------------------ */
+#commentPalette {
+  position: fixed;
+  top: 80px;
+  right: 12px;
+  left: auto;
+  z-index: 2200;
+  display: none;
+  flex-direction: column;
+  align-items: flex-start;
+  background: rgba(40, 40, 40, 0.94);
+  border-radius: 10px;
+  padding: 2px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  color: #eee;
+  font-family: system-ui, sans-serif;
+  backdrop-filter: blur(4px);
+  user-select: none;
+  width: 120px; /* slightly smaller than before */
+}
+
+#commentPalette.show,
+#commentPalette.active {
+  display: flex !important;
+}
+
+/* Palette inner layout */
+#commentPalette .Palette-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+#commentPalette .Palette-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#commentPalette .Palette-section.text,
+#commentPalette .Palette-section.tools {
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+}
+
+/* Palette buttons */
+#commentPalette .Palette-btn {
+  background: none;
+  border: 1px solid #555;
+  color: #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 2px 2px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+#commentPalette .Palette-btn:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: #888;
+  color: #fff;
+}
+#commentPalette .Palette-btn.active {
+  background: var(--accent-color, #007bff);
+  border-color: var(--accent-color, #007bff);
+  color: #fff;
+}
+
+/* Palette drag handle */
+#commentPalette .Palette-drag-handle {
+  cursor: grab;
+  color: #aaa;
+  align-self: flex-end;
+  margin-bottom: 2px;
+}
+#commentPalette .Palette-drag-handle:hover {
+  color: #fff;
+}
+
+/* Palette icon + label */
+#commentPalette i[data-lucide] {
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+#commentPalette .Palette-btn span {
+  font-size: 12px;
+  color: #ccc;
+}
+#commentPalette .Palette-btn:hover span {
+  color: #fff;
+}
+
+/* Active tool coloring */
+#commentPalette .Palette-btn[data-tool="highlight"].active {
+  background: rgba(255,235,59,0.2);
+  border-color: #ffeb3b;
+  color: #fff176;
+}
+#commentPalette .Palette-btn[data-tool="comment"].active {
+  background: rgba(80,160,255,0.2);
+  border-color: #4aa3ff;
+  color: #a5d8ff;
+}
+#commentPalette .Palette-btn[data-tool="draw"].active {
+  background: rgba(244, 81, 30, 0.25);
+  border-color: #f4511e;
+  color: #ffccbc;
+}
+
+/* Compact version on mobile */
+@media (max-width: 768px) {
+  #commentPalette {
+    width: 46px;
+    padding: 2px;
+    align-items: center;
+  }
+  #commentPalette .Palette-content {
+    align-items: center;
+  }
+  #commentPalette .Palette-btn {
+    justify-content: center;
+    min-width: 30px;
+    padding: 2px;
+  }
+  #commentPalette .Palette-btn span {
+    display: none;
+  }
+  #commentPalette i[data-lucide] {
+    width: 16px;
+    height: 16px;
+  }
+  #commentPalette .Palette-drag-handle {
+    align-self: center;
+    margin-bottom: 2px;
+  }
+}
+
+/* Prevent palette from going off-screen */
+#commentPalette {
+  top: min(
+    max(var(--cp-top, 80px), 10px),
+    calc(100vh - 140px)      /* adjust if palette is taller on mobile */
+  );
+  right: min(
+    max(var(--cp-right, 12px), 0px),
+    calc(100vw - 60px)       /* keeps palette fully visible */
+  );
+}
+
+/*The above is the old css from myStylesText.css*/
+
+/* ================================
+   Shared Palette Button Style
+   (used by comment + pdf palettes)
+   ================================ */
+   
+   
+
+.Palette-btn {
+  background: none;
+  border: 1px solid #555;
+  color: #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 2px 2px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.Palette-btn:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: #888;
+  color: #fff;
+}
+
+.Palette-btn.active {
+  background: var(--accent-color, #007bff);
+  border-color: var(--accent-color, #007bff);
+  color: #fff;
+}
+
+/* Shared icon + label look */
+.Palette-btn i[data-lucide] {
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+.Palette-btn span {
+  font-size: 12px;
+  color: #ccc;
+}
+
+.Palette-btn:hover span {
+  color: #fff;
+}
+
+
+/* Active tool coloring – comment palette only */
+#commentPalette .Palette-btn[data-tool="highlight"].active {
+  background: rgba(255,235,59,0.2);
+  border-color: #ffeb3b;
+  color: #fff176;
+}
+#commentPalette .Palette-btn[data-tool="comment"].active {
+  background: rgba(80,160,255,0.2);
+  border-color: #4aa3ff;
+  color: #a5d8ff;
+}
+#commentPalette .Palette-btn[data-tool="draw"].active {
+  background: rgba(244, 81, 30, 0.25);
+  border-color: #f4511e;
+  color: #ffccbc;
+}
+
+
+
+/* Shared popout + child controls (from PDF palette) */
+
+.pen-options {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  transform: translate(8px, -50%) scaleX(1);
+  transform-origin: center left;
+  background: rgba(30, 30, 30, 0.97);
+  border: 1px solid #555;
+  border-radius: 10px;
+  padding: 3px 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 1;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  z-index: 100000;
+}
+
+.pen-options.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(0, -50%) scaleX(0.8);
+}
+
+.pen-label {
+  color: #eee;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pen-options input[type="color"] {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+
+.pen-options input[type="range"] {
+  width: 80px;
+  accent-color: #007bff;
+}
+
+
+/* When palette is flipped, open popouts to the LEFT */
+.expand-left .pen-options {
+  left: auto;
+  right: 100%;
+  transform: translate(-8px, -50%) scaleX(1);
+  transform-origin: center right;
+}
+
+.expand-left .pen-options.hidden {
+  transform: translate(0, -50%) scaleX(0.8);
+}
+
+
+.Palette-highlight-wrapper,
+.Palette-comment-wrapper,
+.Palette-draw-wrapper
+{
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+
+
+
+/*.drawing-bubble,*/
+/*.drawing-drag-handle {*/
+  /*touch-action: none;     */
+  /* block browser scroll gestures on this element */
+/*  -webkit-user-select: none;*/
+/*  user-select: none;*/
+/*}*/
+
+
+/* Owner-layer edit mode: actor avatar ring turns red */
+body.edit-mode.owner-annotation-layer #drawingPalette .Palette-actor-btn.is-owner-layer {
+  border-color: #df4c4c;
+  box-shadow: 0 0 0 2px rgba(223, 76, 76, 0.30);
+}

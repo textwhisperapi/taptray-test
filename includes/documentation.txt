@@ -1,0 +1,67 @@
+User Sessions and Access Control – System Documentation
+--------------------------------------------------
+
+This document outlines how users, sessions, and content access are managed across the application, with attention to privacy, collaboration, and offline availability.
+
+Session Management
+------------------
+When a user logs in:
+  - $_SESSION['user_id']: integer ID, e.g. 99
+  - $_SESSION['username']: string username, e.g. "threstir"
+
+These values are used to:
+  - Verify authentication
+  - Attribute ownership (based on username)
+  - Enforce permissions for modifying data
+
+Note: All data-modifying endpoints (insert, update, delete) must validate that $_SESSION['username'] === item.Owner.
+
+Access and Permissions
+-----------------------
+1. Users can only modify their own items
+   - All inserts/updates/deletes validate ownership against text.Owner.
+   - Other users can view, but not change, items they do not own.
+
+2. Users can add items from other users to their own lists
+   - Lists function as collections of references.
+   - A user's list can include items owned by others, but ownership and edit rights do not transfer.
+
+3. Users can add other users' lists as favorites
+   - Favorites are personal bookmarks to others' lists.
+   - Favoriting does not imply edit access or ownership.
+   - Favorited lists appear in a special “⭐ Favorites” section.
+
+4. Some lists can be hidden from other users (optional)
+   - List-level visibility can be marked as:
+     - public (default)
+     - private (visible only to the owner)
+   - Private lists are excluded from searches and public views.
+
+Public Access and Offline Mode
+-------------------------------
+5. Login is not required for:
+   - Viewing users and their public lists
+   - Viewing items within public lists
+   - Searching across public content
+
+   Users can browse anonymously unless they want to:
+     - Create/modify content
+     - Favorite lists
+     - Use offline sync
+
+6. Anyone can make any available list available offline
+   - Public lists (or private ones owned by the user) can be cached with Service Workers.
+   - Offline sync stores:
+     - List metadata
+     - Referenced item content
+     - Associated PDF files (if present)
+
+   A user does not need to be logged in to mark a list for offline use.
+
+Implementation Notes
+---------------------
+- All writes must be session-guarded ($_SESSION['username'] === text.Owner).
+- Frontend must clearly distinguish:
+   - Logged-in user
+   - Selected (viewed) user
+- Backend must reject any attempts to spoof ownership via URL or POST data.

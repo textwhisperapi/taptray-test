@@ -1,0 +1,2 @@
+ALTER TABLE ep_events
+  ADD COLUMN image_url VARCHAR(1024) NULL AFTER notes;

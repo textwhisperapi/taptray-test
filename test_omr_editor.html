@@ -1,0 +1,984 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TW OMR Simple Editor</title>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f5; color: #111827; }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 14px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+    .card { background: #fff; border: 1px solid #d4d4d8; border-radius: 10px; padding: 10px; }
+    .main { display: grid; grid-template-columns: 1.1fr 1fr; gap: 10px; }
+    .title { font-weight: 700; margin: 0 0 8px; }
+    input[type="text"] { min-width: 280px; padding: 8px; border: 1px solid #a1a1aa; border-radius: 8px; }
+    button, input[type="file"] { padding: 7px 10px; border: 1px solid #71717a; border-radius: 8px; background: #fff; cursor: pointer; }
+    button.primary { background: #0f766e; border-color: #0f766e; color: #fff; }
+    textarea { width: 100%; min-height: 58vh; box-sizing: border-box; border: 1px solid #a1a1aa; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 12px; }
+    #viewer { position: relative; min-height: 58vh; overflow: auto; border: 1px solid #e4e4e7; border-radius: 8px; background: #fff; }
+    #dragLayer { position: absolute; inset: 0; pointer-events: none; z-index: 12; }
+    .drag-note {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      background: #dc2626;
+      border: 1px solid #fff;
+      box-shadow: 0 0 0 1px rgba(0,0,0,.2);
+      cursor: grab;
+      pointer-events: auto;
+    }
+    .drag-note.selected {
+      background: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37,99,235,.25);
+    }
+    #log { white-space: pre-wrap; font-family: monospace; font-size: 12px; background: #09090b; color: #e4e4e7; border-radius: 8px; padding: 10px; margin-top: 10px; min-height: 90px; }
+    @media (max-width: 980px) { .main { grid-template-columns: 1fr; } textarea, #viewer { min-height: 42vh; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">TW OMR Simple Editor</div>
+      <div class="row">
+        <input id="xmlUrl" type="text" placeholder="Paste MusicXML URL (optional)"/>
+        <button id="loadUrlBtn">Load URL</button>
+        <input id="fileInput" type="file" accept=".xml,.musicxml,.mxl,application/xml,application/vnd.recordare.musicxml+xml,application/vnd.recordare.musicxml"/>
+        <button id="renderBtn" class="primary">Render</button>
+        <button id="stemVoiceBtn">Apply Stem->Voice</button>
+        <button id="sharedRestBtn">Apply Shared 1/4 Rest</button>
+        <button id="toggleDragBtn">Toggle Drag Layer</button>
+        <button id="storeDragBtn">Store Dragged Notes</button>
+        <button id="pitchDownBtn">Pitch -1</button>
+        <button id="pitchUpBtn">Pitch +1</button>
+        <button id="voice1Btn">Voice 1</button>
+        <button id="voice2Btn">Voice 2</button>
+        <button id="prevNoteBtn">Prev Note</button>
+        <button id="nextNoteBtn">Next Note</button>
+        <input id="noteIdxInput" type="text" value="1" style="width:72px" />
+        <button id="selectNoteBtn">Select #</button>
+        <button id="validateBtn">Validate</button>
+        <button id="downloadBtn">Download XML</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="card">
+        <div class="title">MusicXML Text</div>
+        <textarea id="xmlText" spellcheck="false"></textarea>
+      </div>
+      <div class="card">
+        <div class="title">Score Preview</div>
+        <div id="viewer"></div>
+      </div>
+    </div>
+
+    <div id="log"></div>
+  </div>
+
+  <script>
+    const XML_DRAFT_KEY = 'tw_omr_editor_xml_draft_v1';
+    const xmlUrl = document.getElementById('xmlUrl');
+    const fileInput = document.getElementById('fileInput');
+    const xmlText = document.getElementById('xmlText');
+    const viewer = document.getElementById('viewer');
+    const log = document.getElementById('log');
+    const loadUrlBtn = document.getElementById('loadUrlBtn');
+    const renderBtn = document.getElementById('renderBtn');
+    const stemVoiceBtn = document.getElementById('stemVoiceBtn');
+    const sharedRestBtn = document.getElementById('sharedRestBtn');
+    const toggleDragBtn = document.getElementById('toggleDragBtn');
+    const storeDragBtn = document.getElementById('storeDragBtn');
+    const pitchDownBtn = document.getElementById('pitchDownBtn');
+    const pitchUpBtn = document.getElementById('pitchUpBtn');
+    const voice1Btn = document.getElementById('voice1Btn');
+    const voice2Btn = document.getElementById('voice2Btn');
+    const prevNoteBtn = document.getElementById('prevNoteBtn');
+    const nextNoteBtn = document.getElementById('nextNoteBtn');
+    const noteIdxInput = document.getElementById('noteIdxInput');
+    const selectNoteBtn = document.getElementById('selectNoteBtn');
+    const validateBtn = document.getElementById('validateBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    let osmd = null;
+    let jsZipReady = null;
+    let osmdReady = null;
+    let dragEnabled = false;
+    let dragModel = null;
+    let selectedDragIndex = -1;
+    let lastDraggedNoteIdx = -1;
+
+    function writeLog(msg) {
+      log.textContent = String(msg || '');
+    }
+
+    function saveDraftXml(text) {
+      try {
+        localStorage.setItem(XML_DRAFT_KEY, String(text || ''));
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function loadDraftXml() {
+      try {
+        return String(localStorage.getItem(XML_DRAFT_KEY) || '');
+      } catch {
+        return '';
+      }
+    }
+
+    async function ensureOsmd() {
+      if (window.opensheetmusicdisplay?.OpenSheetMusicDisplay) return true;
+      if (osmdReady) return osmdReady;
+      osmdReady = new Promise((resolve) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.8.9/build/opensheetmusicdisplay.min.js';
+        s.async = true;
+        s.onload = () => resolve(!!window.opensheetmusicdisplay?.OpenSheetMusicDisplay);
+        s.onerror = () => resolve(false);
+        document.head.appendChild(s);
+      });
+      return osmdReady;
+    }
+
+    async function ensureJsZip() {
+      if (window.JSZip) return true;
+      if (jsZipReady) return jsZipReady;
+      jsZipReady = new Promise((resolve) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+        s.async = true;
+        s.onload = () => resolve(!!window.JSZip);
+        s.onerror = () => resolve(false);
+        document.head.appendChild(s);
+      });
+      return jsZipReady;
+    }
+
+    function isZipBytes(buf) {
+      const b = new Uint8Array(buf || new ArrayBuffer(0));
+      return b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && (b[2] === 0x03 || b[2] === 0x05 || b[2] === 0x07) && (b[3] === 0x04 || b[3] === 0x06 || b[3] === 0x08);
+    }
+
+    async function extractXmlFromMxl(buffer) {
+      const ok = await ensureJsZip();
+      if (!ok || !window.JSZip) return '';
+      const zip = await window.JSZip.loadAsync(buffer);
+      const container = zip.file('META-INF/container.xml');
+      if (container) {
+        const cText = await container.async('string');
+        const m = cText.match(/full-path\s*=\s*"([^"]+)"/i);
+        if (m?.[1] && zip.file(m[1])) return await zip.file(m[1]).async('string');
+      }
+      const names = Object.keys(zip.files || {});
+      const cand = names.find((n) => /\.xml$/i.test(n) && !/^META-INF\//i.test(n));
+      if (cand && zip.file(cand)) return await zip.file(cand).async('string');
+      return '';
+    }
+
+    function parseXml(text) {
+      const doc = new DOMParser().parseFromString(String(text || ''), 'application/xml');
+      if (doc.getElementsByTagName('parsererror').length) return null;
+      return doc;
+    }
+
+    function localNameOf(node) {
+      return (node?.localName || node?.nodeName || '').toLowerCase();
+    }
+
+    function applyStemVoiceRule(text) {
+      const doc = parseXml(text);
+      if (!doc) throw new Error('Invalid XML');
+      const setVoice = (noteEl, value) => {
+        let v = noteEl.getElementsByTagNameNS('*', 'voice')[0] || null;
+        if (!v) {
+          v = doc.createElement('voice');
+          noteEl.appendChild(v);
+        }
+        v.textContent = String(value);
+      };
+      const measures = Array.from(doc.getElementsByTagNameNS('*', 'measure'));
+      let changed = 0;
+      for (let mi = 0; mi < measures.length; mi++) {
+        const notes = Array.from(measures[mi].children || []).filter((n) => localNameOf(n) === 'note');
+        for (let i = 0; i < notes.length; i++) {
+          const note = notes[i];
+          if (note.getElementsByTagNameNS('*', 'rest').length) continue;
+          const stem = String(note.getElementsByTagNameNS('*', 'stem')[0]?.textContent || '').trim().toLowerCase();
+          if (stem === 'up') { setVoice(note, '1'); changed++; }
+          else if (stem === 'down') { setVoice(note, '2'); changed++; }
+        }
+      }
+      return { xml: new XMLSerializer().serializeToString(doc), changed };
+    }
+
+    function durationRawFromNote(noteEl, divisions) {
+      const d = Number((noteEl?.getElementsByTagNameNS('*', 'duration')[0]?.textContent || '').trim());
+      if (Number.isFinite(d) && d > 0) return Math.max(1, Math.round(d));
+      const typeText = String(noteEl?.getElementsByTagNameNS('*', 'type')[0]?.textContent || '').trim().toLowerCase();
+      const q = {
+        whole: 4, half: 2, quarter: 1, eighth: 0.5, '16th': 0.25, '32nd': 0.125
+      };
+      const mult = Number(q[typeText] || 0);
+      if (!(mult > 0)) return 0;
+      return Math.max(1, Math.round(Number(divisions || 1) * mult));
+    }
+
+    function applySharedQuarterRestRule(text) {
+      const doc = parseXml(text);
+      if (!doc) throw new Error('Invalid XML');
+      const overlaps = (a0, a1, b0, b1) => Math.min(a1, b1) > Math.max(a0, b0);
+      let changed = 0;
+      const parts = Array.from(doc.getElementsByTagNameNS('*', 'part'));
+      for (let pi = 0; pi < parts.length; pi++) {
+        let divisions = 1;
+        const measures = Array.from(parts[pi].getElementsByTagNameNS('*', 'measure'));
+        for (let mi = 0; mi < measures.length; mi++) {
+          const measure = measures[mi];
+          const children = Array.from(measure.childNodes || []).filter((n) => n && n.nodeType === 1);
+          for (let i = 0; i < children.length; i++) {
+            if (localNameOf(children[i]) !== 'attributes') continue;
+            const d = Number((children[i].getElementsByTagNameNS('*', 'divisions')[0]?.textContent || '').trim());
+            if (Number.isFinite(d) && d > 0) divisions = d;
+          }
+          const quarter = Math.max(1, Math.round(divisions));
+          let streamPos = 0;
+          const voiceStarts = new Map();
+          const eventsByVoice = new Map();
+          for (let i = 0; i < children.length; i++) {
+            const el = children[i];
+            const ln = localNameOf(el);
+            if (ln === 'backup' || ln === 'forward') {
+              const d = Number((el.getElementsByTagNameNS('*', 'duration')[0]?.textContent || '').trim());
+              if (Number.isFinite(d) && d > 0) streamPos += (ln === 'backup' ? -d : d);
+              if (streamPos < 0) streamPos = 0;
+              continue;
+            }
+            if (ln !== 'note') continue;
+            const voice = String(el.getElementsByTagNameNS('*', 'voice')[0]?.textContent || '1').trim() || '1';
+            const hasChord = el.getElementsByTagNameNS('*', 'chord').length > 0;
+            const isRest = el.getElementsByTagNameNS('*', 'rest').length > 0;
+            const dur = durationRawFromNote(el, divisions);
+            if (!(dur > 0)) continue;
+            const start = hasChord ? Number(voiceStarts.get(voice) ?? streamPos) : streamPos;
+            const end = start + dur;
+            if (!hasChord) {
+              voiceStarts.set(voice, start);
+              streamPos = end;
+            }
+            const arr = eventsByVoice.get(voice) || [];
+            arr.push({ el, start, end, isRest, dur });
+            eventsByVoice.set(voice, arr);
+          }
+
+          const add = [];
+          for (const voice of ['1', '2']) {
+            const other = voice === '1' ? '2' : '1';
+            const evs = eventsByVoice.get(voice) || [];
+            const otherEvs = eventsByVoice.get(other) || [];
+            const rests = evs.filter((e) => e.isRest && e.dur === quarter);
+            for (let r = 0; r < rests.length; r++) {
+              const rr = rests[r];
+              const otherHasOverlap = otherEvs.some((e) => overlaps(rr.start, rr.end, e.start, e.end));
+              if (otherHasOverlap) continue;
+              const clone = rr.el.cloneNode(true);
+              let vEl = clone.getElementsByTagNameNS('*', 'voice')[0];
+              if (!vEl) {
+                vEl = doc.createElement('voice');
+                clone.appendChild(vEl);
+              }
+              vEl.textContent = other;
+              add.push({ after: rr.el, clone });
+              const arr = eventsByVoice.get(other) || [];
+              arr.push({ el: clone, start: rr.start, end: rr.end, isRest: true, dur: rr.dur });
+              eventsByVoice.set(other, arr);
+              changed += 1;
+            }
+          }
+          for (let i = 0; i < add.length; i++) {
+            const a = add[i];
+            if (!a?.after?.parentNode) continue;
+            if (a.after.nextSibling) a.after.parentNode.insertBefore(a.clone, a.after.nextSibling);
+            else a.after.parentNode.appendChild(a.clone);
+          }
+        }
+      }
+      return { xml: new XMLSerializer().serializeToString(doc), changed };
+    }
+
+    function validateSimple(text) {
+      const doc = parseXml(text);
+      if (!doc) return 'Validation: XML parse error';
+      const issues = [];
+      const parts = Array.from(doc.getElementsByTagNameNS('*', 'part'));
+      for (let pi = 0; pi < parts.length; pi++) {
+        const partId = String(parts[pi].getAttribute('id') || `P${pi + 1}`);
+        let divisions = 1, beats = 4, beatType = 4;
+        const measures = Array.from(parts[pi].getElementsByTagNameNS('*', 'measure'));
+        for (let mi = 0; mi < measures.length; mi++) {
+          const mNo = String(measures[mi].getAttribute('number') || (mi + 1));
+          const children = Array.from(measures[mi].childNodes || []).filter((n) => n && n.nodeType === 1);
+          for (let i = 0; i < children.length; i++) {
+            if (localNameOf(children[i]) !== 'attributes') continue;
+            const d = Number((children[i].getElementsByTagNameNS('*', 'divisions')[0]?.textContent || '').trim());
+            if (Number.isFinite(d) && d > 0) divisions = d;
+            const time = children[i].getElementsByTagNameNS('*', 'time')[0];
+            if (time) {
+              const b = Number((time.getElementsByTagNameNS('*', 'beats')[0]?.textContent || '').trim());
+              const bt = Number((time.getElementsByTagNameNS('*', 'beat-type')[0]?.textContent || '').trim());
+              if (Number.isFinite(b) && b > 0) beats = b;
+              if (Number.isFinite(bt) && bt > 0) beatType = bt;
+            }
+          }
+          const expected = Math.max(1, Math.round(divisions * beats * (4 / beatType)));
+          let cursor = 0;
+          let maxEnd = 0;
+          for (let i = 0; i < children.length; i++) {
+            const ln = localNameOf(children[i]);
+            if (ln === 'backup' || ln === 'forward') {
+              const d = Number((children[i].getElementsByTagNameNS('*', 'duration')[0]?.textContent || '').trim());
+              if (Number.isFinite(d) && d > 0) cursor += (ln === 'backup' ? -d : d);
+              if (cursor < 0) cursor = 0;
+              continue;
+            }
+            if (ln !== 'note') continue;
+            const hasChord = children[i].getElementsByTagNameNS('*', 'chord').length > 0;
+            const d = Number((children[i].getElementsByTagNameNS('*', 'duration')[0]?.textContent || '').trim());
+            if (!(Number.isFinite(d) && d > 0)) continue;
+            const start = hasChord ? cursor : cursor;
+            const end = start + d;
+            if (!hasChord) cursor = end;
+            if (end > maxEnd) maxEnd = end;
+          }
+          if (maxEnd < expected) issues.push(`UNDERFILL part:${partId} measure:${mNo} ${maxEnd}/${expected}`);
+          if (maxEnd > expected) issues.push(`OVERFILL part:${partId} measure:${mNo} ${maxEnd}/${expected}`);
+        }
+      }
+      if (!issues.length) return 'Validation: OK';
+      return `Validation: ${issues.length} issue(s)\n` + issues.slice(0, 20).join('\n');
+    }
+
+    async function renderXml(text) {
+      const ok = await ensureOsmd();
+      if (!ok) {
+        viewer.textContent = 'OSMD failed to load.';
+        return;
+      }
+      if (!osmd) {
+        osmd = new window.opensheetmusicdisplay.OpenSheetMusicDisplay(viewer, {
+          autoResize: true,
+          drawingParameters: 'compacttight',
+          drawTitle: true
+        });
+      }
+      await osmd.load(String(text || ''));
+      await osmd.render();
+      if (dragEnabled) renderDragLayer();
+      else clearDragLayer();
+    }
+
+    function clearDragLayer() {
+      const old = document.getElementById('dragLayer');
+      if (old && old.parentNode) old.parentNode.removeChild(old);
+    }
+
+    function buildDragModel(text) {
+      const doc = parseXml(text);
+      if (!doc) return null;
+      const noteEls = Array.from(doc.getElementsByTagNameNS('*', 'note'));
+      const items = [];
+      for (let i = 0; i < noteEls.length; i++) {
+        const n = noteEls[i];
+        if (n.getElementsByTagNameNS('*', 'rest').length) continue;
+        if (!n.getElementsByTagNameNS('*', 'pitch').length) continue;
+        const x = Number(n.getAttribute('default-x'));
+        const y = Number(n.getAttribute('default-y'));
+        items.push({
+          idx: items.length,
+          noteElIndex: i,
+          xVal: Number.isFinite(x) ? x : null,
+          yVal: Number.isFinite(y) ? y : null,
+          px: 0,
+          py: 0,
+          basePx: 0,
+          basePy: 0
+        });
+      }
+      if (!items.length) return null;
+      return { notes: items };
+    }
+
+    function assignCentersToNotes(notes, centers) {
+      const n = Math.min(notes.length, centers.length);
+      if (!n) return [];
+      const out = [];
+      for (let i = 0; i < n; i++) out.push({ noteIdx: i, centerIdx: i });
+      return out;
+    }
+
+    function updateDotSelectionUi() {
+      const layer = document.getElementById('dragLayer');
+      if (!layer) return;
+      const dots = Array.from(layer.querySelectorAll('.drag-note'));
+      for (let i = 0; i < dots.length; i++) {
+        const idx = Number(dots[i].dataset.idx || -1);
+        dots[i].classList.toggle('selected', idx === selectedDragIndex);
+      }
+    }
+
+    function setSelectedDragIndex(idx) {
+      selectedDragIndex = Number.isFinite(idx) ? idx : -1;
+      if (selectedDragIndex >= 0) noteIdxInput.value = String(selectedDragIndex + 1);
+      updateDotSelectionUi();
+    }
+
+    function selectXmlNoteByOrdinal(oneBasedIndex) {
+      if (!dragModel || !Array.isArray(dragModel.notes) || !dragModel.notes.length) {
+        throw new Error('No note map. Render first.');
+      }
+      const idx = Math.max(1, Math.min(dragModel.notes.length, Math.trunc(Number(oneBasedIndex || 1)))) - 1;
+      setSelectedDragIndex(idx);
+      return idx;
+    }
+
+    function estimateStepPixels(notes) {
+      const ys = (Array.isArray(notes) ? notes : [])
+        .map((n) => Number(n?.basePy))
+        .filter((v) => Number.isFinite(v))
+        .sort((a, b) => a - b);
+      if (ys.length < 4) return 8;
+      const diffs = [];
+      for (let i = 1; i < ys.length; i++) {
+        const d = ys[i] - ys[i - 1];
+        if (d > 1 && d < 32) diffs.push(d);
+      }
+      if (!diffs.length) return 8;
+      diffs.sort((a, b) => a - b);
+      return Math.max(4, Math.min(18, diffs[Math.floor(diffs.length / 2)]));
+    }
+
+    function estimateGridX(notes) {
+      const xs = (Array.isArray(notes) ? notes : [])
+        .map((n) => Number(n?.basePx))
+        .filter((v) => Number.isFinite(v))
+        .sort((a, b) => a - b);
+      if (xs.length < 4) return 14;
+      const diffs = [];
+      for (let i = 1; i < xs.length; i++) {
+        const d = xs[i] - xs[i - 1];
+        if (d >= 6 && d <= 120) diffs.push(d);
+      }
+      if (!diffs.length) return 14;
+      diffs.sort((a, b) => a - b);
+      return Math.max(8, Math.min(48, diffs[Math.floor(diffs.length / 2)]));
+    }
+
+    function snapAroundBase(raw, base, step) {
+      const s = Math.max(1, Number(step || 1));
+      return Number(base || 0) + Math.round((Number(raw || 0) - Number(base || 0)) / s) * s;
+    }
+
+    function transposePitchDiatonic(noteEl, deltaSteps, doc) {
+      const pitchEl = noteEl?.getElementsByTagNameNS('*', 'pitch')[0];
+      if (!pitchEl) return false;
+      const stepEl = pitchEl.getElementsByTagNameNS('*', 'step')[0];
+      const octaveEl = pitchEl.getElementsByTagNameNS('*', 'octave')[0];
+      if (!stepEl || !octaveEl) return false;
+      const steps = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+      const curStep = String(stepEl.textContent || '').trim().toUpperCase();
+      const curOct = Number((octaveEl.textContent || '').trim());
+      if (!steps.includes(curStep) || !Number.isFinite(curOct)) return false;
+
+      let idx = steps.indexOf(curStep);
+      let oct = curOct;
+      let move = Math.trunc(Number(deltaSteps || 0));
+      while (move > 0) {
+        idx += 1;
+        if (idx >= steps.length) { idx = 0; oct += 1; }
+        move -= 1;
+      }
+      while (move < 0) {
+        idx -= 1;
+        if (idx < 0) { idx = steps.length - 1; oct -= 1; }
+        move += 1;
+      }
+      stepEl.textContent = steps[idx];
+      octaveEl.textContent = String(oct);
+      // Remove accidental-alter when moving diatonically to keep deterministic behavior.
+      const alterEl = pitchEl.getElementsByTagNameNS('*', 'alter')[0];
+      if (alterEl && alterEl.parentNode) alterEl.parentNode.removeChild(alterEl);
+      const accidentalEl = noteEl.getElementsByTagNameNS('*', 'accidental')[0];
+      if (accidentalEl && accidentalEl.parentNode) accidentalEl.parentNode.removeChild(accidentalEl);
+      return true;
+    }
+
+    function readPitchDiatonic(noteEl) {
+      const pitchEl = noteEl?.getElementsByTagNameNS('*', 'pitch')[0];
+      if (!pitchEl) return null;
+      const stepEl = pitchEl.getElementsByTagNameNS('*', 'step')[0];
+      const octaveEl = pitchEl.getElementsByTagNameNS('*', 'octave')[0];
+      if (!stepEl || !octaveEl) return null;
+      const step = String(stepEl.textContent || '').trim().toUpperCase();
+      const oct = Number((octaveEl.textContent || '').trim());
+      if (!['C', 'D', 'E', 'F', 'G', 'A', 'B'].includes(step) || !Number.isFinite(oct)) return null;
+      return { step, oct };
+    }
+
+    function shiftDiatonic(step, oct, deltaSteps) {
+      const steps = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+      let idx = steps.indexOf(String(step || '').toUpperCase());
+      let o = Number(oct || 4);
+      if (idx < 0 || !Number.isFinite(o)) return null;
+      let move = Math.trunc(Number(deltaSteps || 0));
+      while (move > 0) {
+        idx += 1;
+        if (idx >= steps.length) { idx = 0; o += 1; }
+        move -= 1;
+      }
+      while (move < 0) {
+        idx -= 1;
+        if (idx < 0) { idx = steps.length - 1; o -= 1; }
+        move += 1;
+      }
+      return { step: steps[idx], oct: o };
+    }
+
+    function setPitchDiatonic(noteEl, step, oct) {
+      const pitchEl = noteEl?.getElementsByTagNameNS('*', 'pitch')[0];
+      if (!pitchEl) return false;
+      const stepEl = pitchEl.getElementsByTagNameNS('*', 'step')[0];
+      const octaveEl = pitchEl.getElementsByTagNameNS('*', 'octave')[0];
+      if (!stepEl || !octaveEl) return false;
+      stepEl.textContent = String(step || 'C');
+      octaveEl.textContent = String(Number.isFinite(oct) ? oct : 4);
+      const alterEl = pitchEl.getElementsByTagNameNS('*', 'alter')[0];
+      if (alterEl && alterEl.parentNode) alterEl.parentNode.removeChild(alterEl);
+      const accidentalEl = noteEl.getElementsByTagNameNS('*', 'accidental')[0];
+      if (accidentalEl && accidentalEl.parentNode) accidentalEl.parentNode.removeChild(accidentalEl);
+      return true;
+    }
+
+    function ensureDragLayerSize(layer, svg) {
+      const w = Math.max(40, Number(svg?.clientWidth || svg?.getBoundingClientRect?.().width || 0));
+      const h = Math.max(40, Number(svg?.clientHeight || svg?.getBoundingClientRect?.().height || 0));
+      layer.style.width = `${Math.round(w)}px`;
+      layer.style.height = `${Math.round(h)}px`;
+      return { w, h };
+    }
+
+    function getRenderedNoteCenters(svg, layerRect) {
+      const selectors = [
+        'g.vf-stavenote .vf-notehead',
+        'g.vf-note .vf-notehead',
+        'g.vf-notehead',
+        '.vf-notehead'
+      ];
+      let elems = [];
+      for (let i = 0; i < selectors.length; i++) {
+        elems = Array.from(svg.querySelectorAll(selectors[i]));
+        if (elems.length) break;
+      }
+      // Do not fallback to whole note/rest groups; that causes index drift.
+      if (!elems.length) return [];
+      const out = [];
+      for (let i = 0; i < elems.length; i++) {
+        const r = elems[i].getBoundingClientRect();
+        if (!(r.width > 0 && r.height > 0)) continue;
+        const cx = r.left - layerRect.left + r.width / 2;
+        const cy = r.top - layerRect.top + r.height / 2;
+        if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
+        out.push({ x: cx, y: cy });
+      }
+      return out;
+    }
+
+    function fitLinear(xs, ys) {
+      const n = Math.min(xs.length, ys.length);
+      if (n < 2) return { a: 0, b: Number(ys[0] || 0), ok: false };
+      let sx = 0, sy = 0, sxx = 0, sxy = 0;
+      for (let i = 0; i < n; i++) {
+        const x = Number(xs[i] || 0);
+        const y = Number(ys[i] || 0);
+        sx += x; sy += y; sxx += x * x; sxy += x * y;
+      }
+      const den = (n * sxx - sx * sx);
+      if (Math.abs(den) < 1e-9) return { a: 0, b: sy / n, ok: false };
+      const a = (n * sxy - sx * sy) / den;
+      const b = (sy - a * sx) / n;
+      return { a, b, ok: true };
+    }
+
+    function renderDragLayer() {
+      clearDragLayer();
+      dragModel = buildDragModel(xmlText.value);
+      if (!dragModel || !dragModel.notes.length) {
+        writeLog('Drag layer: no draggable pitched notes found.');
+        return;
+      }
+      const svg = viewer.querySelector('svg');
+      if (!svg) {
+        writeLog('Drag layer: render score first.');
+        return;
+      }
+      const layer = document.createElement('div');
+      layer.id = 'dragLayer';
+      viewer.appendChild(layer);
+      const { w, h } = ensureDragLayerSize(layer, svg);
+      const layerRect = layer.getBoundingClientRect();
+      const centers = getRenderedNoteCenters(svg, layerRect);
+      const pairs = assignCentersToNotes(dragModel.notes, centers);
+      const noteCount = pairs.length;
+      if (!noteCount) {
+        writeLog('Drag layer: could not find rendered noteheads.');
+        return;
+      }
+      if (selectedDragIndex < 0 || selectedDragIndex >= dragModel.notes.length) {
+        selectedDragIndex = 0;
+      }
+      noteIdxInput.value = String(selectedDragIndex + 1);
+
+      const pairByNote = new Map();
+      for (let i = 0; i < pairs.length; i++) pairByNote.set(pairs[i].noteIdx, pairs[i]);
+      const selectedPair = pairByNote.get(selectedDragIndex);
+      if (!selectedPair) {
+        writeLog(`Drag layer: selected note #${selectedDragIndex + 1} is not mapped on this render.`);
+        return;
+      }
+
+      const moveDot = (dot, x, y) => {
+        dot.style.left = `${Math.round(x)}px`;
+        dot.style.top = `${Math.round(y)}px`;
+      };
+      const centerYs = centers.map((c) => Number(c?.y)).filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
+      const yDiffs = [];
+      for (let i = 1; i < centerYs.length; i++) {
+        const d = centerYs[i] - centerYs[i - 1];
+        if (d > 1 && d < 40) yDiffs.push(d);
+      }
+      yDiffs.sort((a, b) => a - b);
+      const yGrid = yDiffs.length ? Math.max(4, Math.min(18, yDiffs[Math.floor(yDiffs.length / 2)])) : 8;
+      const xGrid = 12;
+
+      const n = dragModel.notes[selectedPair.noteIdx];
+      const c = centers[selectedPair.centerIdx];
+      const dot = document.createElement('div');
+      dot.className = 'drag-note selected';
+      dot.title = `Selected note ${selectedPair.noteIdx + 1}`;
+      dot.dataset.idx = String(selectedPair.noteIdx);
+      const px = Math.max(10, Math.min(w - 10, Number(c?.x || 10)));
+      const py = Math.max(10, Math.min(h - 10, Number(c?.y || 10)));
+      n.px = px;
+      n.py = py;
+      n.basePx = px;
+      n.basePy = py;
+      moveDot(dot, px, py);
+
+      dot.addEventListener('pointerdown', (ev) => {
+        ev.preventDefault();
+        setSelectedDragIndex(selectedPair.noteIdx);
+        dot.setPointerCapture(ev.pointerId);
+        n.liveAppliedDelta = 0;
+        const liveDoc = parseXml(xmlText.value);
+        const liveNoteEls = liveDoc ? Array.from(liveDoc.getElementsByTagNameNS('*', 'note')) : [];
+        const liveNote = liveNoteEls[n.noteElIndex] || null;
+        const basePitch = readPitchDiatonic(liveNote);
+        let lastDelta = 0;
+        let lastWrite = 0;
+        const rect = layer.getBoundingClientRect();
+        const onMove = (mv) => {
+          const xRaw = Math.max(10, Math.min(w - 10, mv.clientX - rect.left));
+          const yRaw = Math.max(10, Math.min(h - 10, mv.clientY - rect.top));
+          const x = Math.max(10, Math.min(w - 10, snapAroundBase(xRaw, n.basePx, xGrid)));
+          const y = Math.max(10, Math.min(h - 10, snapAroundBase(yRaw, n.basePy, yGrid)));
+          moveDot(dot, x, y);
+          n.px = x;
+          n.py = y;
+          lastDraggedNoteIdx = selectedPair.noteIdx;
+          if (liveDoc && liveNote && basePitch) {
+            const dy = Number(n.basePy || 0) - Number(n.py || n.basePy || 0);
+            const delta = Math.round(dy / Math.max(1, yGrid));
+            const now = performance.now();
+            if (delta !== lastDelta || (now - lastWrite) > 40) {
+              const p = shiftDiatonic(basePitch.step, basePitch.oct, delta);
+              if (p && setPitchDiatonic(liveNote, p.step, p.oct)) {
+                xmlText.value = new XMLSerializer().serializeToString(liveDoc);
+                n.liveAppliedDelta = delta;
+                lastDelta = delta;
+                lastWrite = now;
+              }
+            }
+          }
+        };
+        const onUp = (up) => {
+          dot.removeEventListener('pointermove', onMove);
+          dot.removeEventListener('pointerup', onUp);
+          dot.removeEventListener('pointercancel', onUp);
+          try { dot.releasePointerCapture(up.pointerId); } catch {}
+          if (String(xmlText.value || '').trim()) saveDraftXml(xmlText.value);
+        };
+        dot.addEventListener('pointermove', onMove);
+        dot.addEventListener('pointerup', onUp);
+        dot.addEventListener('pointercancel', onUp);
+      });
+
+      layer.appendChild(dot);
+      updateDotSelectionUi();
+      writeLog(`Drag layer ready for selected note #${selectedDragIndex + 1}. Grid x=${Math.round(xGrid)} y=${Math.round(yGrid)}.`);
+    }
+
+    function storeDraggedNotesToXml() {
+      if (!dragModel || !Array.isArray(dragModel.notes) || !dragModel.notes.length) {
+        throw new Error('No dragged notes to store.');
+      }
+      const targetIdx = (lastDraggedNoteIdx >= 0 && lastDraggedNoteIdx < dragModel.notes.length)
+        ? lastDraggedNoteIdx
+        : selectedDragIndex;
+      if (!(targetIdx >= 0 && targetIdx < dragModel.notes.length)) {
+        throw new Error('Select a note first.');
+      }
+      const src = dragModel.notes[targetIdx];
+      if (!Number.isFinite(src?.basePy)) throw new Error('Selected note is not mapped.');
+      const pitchChanged = (Math.abs(Number(src.liveAppliedDelta || 0)) > 0) ? 1 : 0;
+      const cursor = 1;
+      // Live drag already updates xmlText continuously. Store now only finalizes state.
+      if (!String(xmlText.value || '').trim()) throw new Error('XML is empty.');
+      lastDraggedNoteIdx = -1;
+      return { mapped: cursor, pitchChanged, targetIdx };
+    }
+
+    function applyToSelectedNote(mutator, label) {
+      if (!dragModel || !Array.isArray(dragModel.notes) || !dragModel.notes.length) {
+        throw new Error('No notes loaded.');
+      }
+      if (!(selectedDragIndex >= 0 && selectedDragIndex < dragModel.notes.length)) {
+        throw new Error('Select a note first.');
+      }
+      const target = dragModel.notes[selectedDragIndex];
+      const doc = parseXml(xmlText.value);
+      if (!doc) throw new Error('Invalid XML');
+      const noteEls = Array.from(doc.getElementsByTagNameNS('*', 'note'));
+      const noteEl = noteEls[target.noteElIndex];
+      if (!noteEl) throw new Error('Selected note no longer exists.');
+      const changed = !!mutator(noteEl, doc);
+      const out = new XMLSerializer().serializeToString(doc);
+      xmlText.value = out;
+      const ok = saveDraftXml(out);
+      return { changed, ok, label: String(label || 'Edit') };
+    }
+
+    function setVoice(noteEl, voiceValue, doc) {
+      if (!noteEl) return false;
+      let v = noteEl.getElementsByTagNameNS('*', 'voice')[0] || null;
+      if (!v) {
+        v = doc.createElement('voice');
+        noteEl.appendChild(v);
+      }
+      v.textContent = String(voiceValue);
+      return true;
+    }
+
+    async function loadUrl() {
+      const url = String(xmlUrl.value || '').trim();
+      if (!url) return;
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const buf = await res.arrayBuffer();
+      let text = '';
+      if (isZipBytes(buf)) text = await extractXmlFromMxl(buf);
+      else text = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(buf));
+      if (!text.trim()) throw new Error('No XML found');
+      xmlText.value = text;
+      saveDraftXml(text);
+      await renderXml(text);
+      writeLog('Loaded and rendered from URL.');
+    }
+
+    function downloadXml() {
+      const text = String(xmlText.value || '');
+      if (!text.trim()) return;
+      const blob = new Blob([text], { type: 'application/vnd.recordare.musicxml+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'omr-edited.musicxml';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      writeLog('Downloaded edited MusicXML.');
+    }
+
+    fileInput.addEventListener('change', async (e) => {
+      const f = e?.target?.files?.[0];
+      if (!f) return;
+      try {
+        const buf = await f.arrayBuffer();
+        let text = '';
+        if (isZipBytes(buf)) text = await extractXmlFromMxl(buf);
+        else text = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(buf));
+        if (!text.trim()) throw new Error('No XML found in file.');
+        xmlText.value = text;
+        saveDraftXml(text);
+        await renderXml(text);
+        writeLog(`Loaded file: ${f.name}`);
+      } catch (err) {
+        writeLog(`Load failed: ${String(err?.message || err)}`);
+      } finally {
+        fileInput.value = '';
+      }
+    });
+
+    loadUrlBtn.addEventListener('click', async () => {
+      try { await loadUrl(); } catch (e) { writeLog(`Load URL failed: ${String(e?.message || e)}`); }
+    });
+
+    renderBtn.addEventListener('click', async () => {
+      try {
+        const text = String(xmlText.value || '');
+        if (!parseXml(text)) throw new Error('XML parse error');
+        await renderXml(text);
+        writeLog('Rendered.');
+      } catch (e) {
+        writeLog(`Render failed: ${String(e?.message || e)}`);
+      }
+    });
+
+    stemVoiceBtn.addEventListener('click', async () => {
+      try {
+        const out = applyStemVoiceRule(xmlText.value);
+        xmlText.value = out.xml;
+        saveDraftXml(out.xml);
+        await renderXml(out.xml);
+        writeLog(`Applied stem->voice rule. Updated notes: ${out.changed}`);
+      } catch (e) {
+        writeLog(`Stem->voice failed: ${String(e?.message || e)}`);
+      }
+    });
+
+    sharedRestBtn.addEventListener('click', async () => {
+      try {
+        const out = applySharedQuarterRestRule(xmlText.value);
+        xmlText.value = out.xml;
+        saveDraftXml(out.xml);
+        await renderXml(out.xml);
+        writeLog(`Applied shared 1/4 rest rule. Added rests: ${out.changed}`);
+      } catch (e) {
+        writeLog(`Shared rest fix failed: ${String(e?.message || e)}`);
+      }
+    });
+
+    toggleDragBtn.addEventListener('click', async () => {
+      dragEnabled = !dragEnabled;
+      toggleDragBtn.textContent = dragEnabled ? 'Hide Drag Layer' : 'Toggle Drag Layer';
+      if (dragEnabled) renderDragLayer();
+      else {
+        clearDragLayer();
+        writeLog('Drag layer hidden.');
+      }
+    });
+
+    storeDragBtn.addEventListener('click', async () => {
+      try {
+        const ok = saveDraftXml(xmlText.value);
+        writeLog(`Saved XML draft${ok ? '' : ' (save failed)'}.`);
+      } catch (e) {
+        writeLog(`Store failed: ${String(e?.message || e)}`);
+      }
+    });
+
+    pitchDownBtn.addEventListener('click', async () => {
+      try {
+        const res = applyToSelectedNote((noteEl, doc) => transposePitchDiatonic(noteEl, -1, doc), 'Pitch -1');
+        await renderXml(xmlText.value);
+        writeLog(`${res.label}: ${res.changed ? 'updated' : 'no change'}${res.ok ? ' (draft saved)' : ''}`);
+      } catch (e) {
+        writeLog(`Pitch -1 failed: ${String(e?.message || e)}`);
+      }
+    });
+
+    pitchUpBtn.addEventListener('click', async () => {
+      try {
+        const res = applyToSelectedNote((noteEl, doc) => transposePitchDiatonic(noteEl, 1, doc), 'Pitch +1');
+        await renderXml(xmlText.value);
+        writeLog(`${res.label}: ${res.changed ? 'updated' : 'no change'}${res.ok ? ' (draft saved)' : ''}`);
+      } catch (e) {
+        writeLog(`Pitch +1 failed: ${String(e?.message || e)}`);
+      }
+    });
+
+    voice1Btn.addEventListener('click', async () => {
+      try {
+        const res = applyToSelectedNote((noteEl, doc) => setVoice(noteEl, 1, doc), 'Voice 1');
+        await renderXml(xmlText.value);
+        writeLog(`${res.label}: ${res.changed ? 'updated' : 'no change'}${res.ok ? ' (draft saved)' : ''}`);
+      } catch (e) {
+        writeLog(`Voice 1 failed: ${String(e?.message || e)}`);
+      }
+    });
+
+    voice2Btn.addEventListener('click', async () => {
+      try {
+        const res = applyToSelectedNote((noteEl, doc) => setVoice(noteEl, 2, doc), 'Voice 2');
+        await renderXml(xmlText.value);
+        writeLog(`${res.label}: ${res.changed ? 'updated' : 'no change'}${res.ok ? ' (draft saved)' : ''}`);
+      } catch (e) {
+        writeLog(`Voice 2 failed: ${String(e?.message || e)}`);
+      }
+    });
+
+    prevNoteBtn.addEventListener('click', () => {
+      try {
+        if (!dragModel || !dragModel.notes?.length) throw new Error('Render first.');
+        const cur = (selectedDragIndex >= 0 ? selectedDragIndex : 0);
+        const next = Math.max(0, cur - 1);
+        setSelectedDragIndex(next);
+        if (dragEnabled) renderDragLayer();
+        writeLog(`Selected note #${next + 1}/${dragModel.notes.length}`);
+      } catch (e) {
+        writeLog(`Prev failed: ${String(e?.message || e)}`);
+      }
+    });
+
+    nextNoteBtn.addEventListener('click', () => {
+      try {
+        if (!dragModel || !dragModel.notes?.length) throw new Error('Render first.');
+        const cur = (selectedDragIndex >= 0 ? selectedDragIndex : -1);
+        const next = Math.min(dragModel.notes.length - 1, cur + 1);
+        setSelectedDragIndex(next);
+        if (dragEnabled) renderDragLayer();
+        writeLog(`Selected note #${next + 1}/${dragModel.notes.length}`);
+      } catch (e) {
+        writeLog(`Next failed: ${String(e?.message || e)}`);
+      }
+    });
+
+    selectNoteBtn.addEventListener('click', () => {
+      try {
+        const idx = selectXmlNoteByOrdinal(noteIdxInput.value);
+        if (dragEnabled) renderDragLayer();
+        writeLog(`Selected note #${idx + 1}/${dragModel?.notes?.length || 0}`);
+      } catch (e) {
+        writeLog(`Select failed: ${String(e?.message || e)}`);
+      }
+    });
+
+    validateBtn.addEventListener('click', () => {
+      writeLog(validateSimple(xmlText.value));
+    });
+
+    downloadBtn.addEventListener('click', downloadXml);
+
+    // Restore last draft automatically.
+    (() => {
+      const draft = loadDraftXml();
+      if (draft) {
+        xmlText.value = draft;
+        writeLog('Restored saved draft from browser storage.');
+      }
+    })();
+  </script>
+</body>
+</html>

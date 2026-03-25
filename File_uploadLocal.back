@@ -1,0 +1,161 @@
+<?php
+require_once __DIR__ . "/includes/functions.php";
+require_once __DIR__ . "/includes/db_connect.php";
+//File_uploadLocal.php
+sec_session_start();
+header("Content-Type: application/json");
+
+//Inputs
+$surrogate = $_POST['surrogate'] ?? '';
+$type = $_POST['type'] ?? '';
+$file = $_FILES['file'] ?? null;
+
+//Must be logged in
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(403);
+    echo json_encode(['status' => 'error', 'error' => 'Not logged in']);
+    exit;
+}
+
+
+
+//Supported types
+$allowed = [
+    'pdf' => [
+        'mimes' => ['application/pdf'],
+        'maxSize' => 3 * 1024 * 1024,
+        'subdir' => 'pdf',
+        'ext' => 'pdf',
+        'prefix' => 'temp_pdf_surrogate-'
+    ],
+    'midi' => [
+        'mimes' => ['audio/midi', 'audio/mid', 'application/x-midi'],
+        'maxSize' => 2 * 1024 * 1024,
+        'subdir' => 'files', // normalized to match new layout
+        'ext' => 'mid',
+        'prefix' => ''
+    ],
+    'audio' => [
+        'mimes' => [
+          'audio/mpeg', 'audio/mp3', 'audio/x-mpeg',
+          'audio/mp4', 'audio/x-m4a',
+          'video/mp4', 'video/3gpp',  //fallback
+          'audio/wav', 'audio/x-wav',
+          'audio/ogg', 'audio/flac', 'audio/aac',
+          'audio/aif', 'audio/aiff',
+          'audio/webm'
+        ],
+        'maxSize' => 100 * 1024 * 1024, // optional: increase to match frontend
+        'subdir' => 'files',
+        'ext' => '', // allow original extension
+        'prefix' => ''
+    ]
+];
+
+
+if (!isset($allowed[$type])) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'error' => 'Unsupported file type']);
+    exit;
+}
+
+$rules = $allowed[$type];
+
+//Validate input and file
+if (!is_numeric($surrogate) || !$file) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'error' => 'Invalid surrogate or missing file']);
+    exit;
+}
+
+if ($file['size'] > $rules['maxSize']) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'error' => 'File too large']);
+    exit;
+}
+
+$finfo = new finfo(FILEINFO_MIME_TYPE);
+$mime = $finfo->file($file['tmp_name']);
+error_log("Uploaded MIME type: $mime");
+
+if (!in_array($mime, $rules['mimes'])) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'error' => 'Invalid MIME type']);
+    exit;
+}
+
+//Owner lookup from DB
+$surrogateSafe = $mysqli->real_escape_string($surrogate);
+$query = "SELECT owner FROM `text` WHERE Surrogate = '$surrogateSafe' LIMIT 1";
+$result = $mysqli->query($query);
+$item = $result ? $result->fetch_assoc() : null;
+
+if (!$item || empty($item['owner'])) {
+    http_response_code(404);
+    echo json_encode(['status' => 'error', 'error' => 'Item not found or missing owner']);
+    exit;
+}
+
+$owner = $item['owner'];
+
+
+//---- Added code for permission test ---------
+
+$currentUser = $_SESSION['username'];
+if (!can_user_edit_surrogate($mysqli, $surrogate, $currentUser)) {
+    http_response_code(403);
+    echo json_encode([
+        'status' => 'error',
+        'error'  => 'You do not have rights to modify this item'
+    ]);
+    exit;
+}
+
+
+
+//----- End added code --------
+
+
+//Build path
+$safeSurrogate = preg_replace('/[^a-zA-Z0-9_-]/', '', $surrogate);
+$basePath = '/home1/wecanrec/textwhisper_uploads';
+$targetDir = ($type === 'pdf')
+    ? "$basePath/$owner/pdf"
+    : "$basePath/$owner/surrogate-$safeSurrogate/files";
+
+
+if (!is_dir($targetDir)) {
+    mkdir($targetDir, 0775, true);
+}
+
+$originalName = $_POST['originalName'] ?? $file['name'];
+// Adjust filename based on type
+if ($type === 'pdf') {
+    $safeName = "temp_pdf_surrogate-$safeSurrogate.pdf";
+    $fullPath = "$targetDir/$safeName";
+} else {
+    $originalName = $_POST['originalName'] ?? $file['name'];
+//    $safeName = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $originalName);
+    $safeName = preg_replace('/[^\p{L}0-9_\-\.]/u', '_', $originalName);
+    $fullPath = "$targetDir/$safeName";
+}
+
+//Save file
+if (move_uploaded_file($file['tmp_name'], $fullPath)) {
+    $url = ($type === 'pdf')
+        ? "/textwhisper_uploads/$owner/pdf/$safeName"
+        : "/textwhisper_uploads/$owner/surrogate-$safeSurrogate/files/$safeName";
+
+    echo json_encode(['status' => 'success', 'url' => $url]);
+} else {
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'error' => 'Failed to save file']);
+}
+
+
+
+
+
+
+
+

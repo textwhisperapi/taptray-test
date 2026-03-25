@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS ep_categories (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  owner_id INT NOT NULL,
+  category VARCHAR(40) NOT NULL,
+  description VARCHAR(255) DEFAULT '',
+  color VARCHAR(16) DEFAULT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY owner_category (owner_id, category),
+  KEY owner_idx (owner_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -1,0 +1,108 @@
+[23-Apr-2025 15:08:25 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:08:25 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:08:25 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:08:25 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:08:25 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php:4
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 4
+[23-Apr-2025 15:09:02 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:09:02 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:09:02 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:09:02 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:09:02 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php:4
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 4
+[23-Apr-2025 15:09:07 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:09:07 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:09:07 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:09:07 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:09:07 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php:4
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 4
+[23-Apr-2025 15:11:01 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:11:01 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:11:01 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:11:01 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:11:01 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php:4
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 4
+[23-Apr-2025 15:11:34 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:11:34 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:11:34 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:11:34 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:11:34 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php:4
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 4
+[23-Apr-2025 15:11:44 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:11:44 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:11:44 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:11:44 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:11:44 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php:4
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 4
+[23-Apr-2025 15:13:04 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:13:04 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:13:04 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:13:04 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:13:04 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php:4
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 4
+[23-Apr-2025 15:13:18 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:13:18 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:13:18 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:13:18 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:13:18 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php:4
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 4
+[23-Apr-2025 15:13:24 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:13:24 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:13:24 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:13:24 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:13:24 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php:4
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 4
+[23-Apr-2025 15:13:53 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:13:53 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/db_connect.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:13:53 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:13:53 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets/includes/functions.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:13:53 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php:4
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 4
+[23-Apr-2025 15:15:08 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php:4
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 4
+[23-Apr-2025 15:16:11 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets../includes/db_connect.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:16:11 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets../includes/db_connect.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:16:11 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets../includes/functions.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:16:11 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets../includes/functions.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:16:11 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php:4
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 4
+[23-Apr-2025 15:20:18 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets./includes/db_connect.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:20:18 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets./includes/db_connect.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 15:20:18 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets./includes/functions.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:20:18 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets./includes/functions.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 15:20:18 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php:4
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 4
+[23-Apr-2025 16:34:24 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets./includes/db_connect.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 16:34:24 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets./includes/db_connect.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 2
+[23-Apr-2025 16:34:24 America/Boise] PHP Warning:  include_once(/home1/wecanrec/public_html/test.textwhisper.com/assets./includes/functions.php): Failed to open stream: No such file or directory in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 16:34:24 America/Boise] PHP Warning:  include_once(): Failed opening '/home1/wecanrec/public_html/test.textwhisper.com/assets./includes/functions.php' for inclusion (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 3
+[23-Apr-2025 16:34:24 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php:4
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/assets/about.php on line 4

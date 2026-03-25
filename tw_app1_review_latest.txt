@@ -1,0 +1,168 @@
+1: Patent Application 1 (Iceland Priority)
+2: Title
+3: Non-Destructive Progressive Text-Cue Transformation for Rehearsal Memory Training
+4: Applicant
+5: Ásgeir Þorgeirsson
+6: Hrímsóar 3
+7: 210 Garðabær
+8: Inventors
+9: Ásgeir Þorgeirsson
+10: Hrímsóar 3
+11: 210 Garðabær
+12: Technical Field
+13: The invention relates to computer-implemented learning and rehearsal systems, and more particularly to non-destructive transformation of source text into progressive memory cues for recall training and performance preparation.
+14: Background
+15: Digital lyric/script rehearsal typically relies on static full-text reading or fully manual redaction. Existing approaches frequently suffer from one or more of:
+16: 1. destructive modification of source text during memorization workflows;
+17: 2. inability to preserve semantic structure (titles, headings, speaker cues) while reducing cues;
+18: 3. poor continuity across device states (online/offline);
+19: 4. inconsistent rendering and line wrapping when cue density changes; and
+20: 5. accidental persistence of transformed practice text as canonical source text.
+21: These issues increase rehearsal friction and reduce confidence during preparation and stage execution.
+22: Summary of the Invention
+23: The invention provides a non-destructive rehearsal cue engine that maintains canonical source text in a first representation and generates a transformed rehearsal representation in a second representation. A user-selectable cue level controls token truncation, while configurable line-preservation rules protect semantically important lines from truncation. The transformed view is rendered for practice without altering canonical content. Persistence safeguards prevent saving transformed text as source while transformation mode is active.
+24: In embodiments, punctuation and emoji are preserved, transformed text is viewport-aware reflowed, and transformed rendering can be regenerated after online/offline load. The result is deterministic, repeatable cue progression with source integrity.
+25: The invention is principally directed to non-destructive trim-based cue transformation; cache and reload behavior are optional implementation embodiments and not required for core operation.
+26: Brief Description of Drawings
+27: 1. FIG. 1 - System architecture showing canonical store, transformation engine, and rehearsal viewport.
+28: 2. FIG. 2 - Dual-representation data flow (canonical text -> transformed cues -> render).
+29: 3. FIG. 3 - Line classification pipeline for preserve-vs-trim decisioning.
+30: 4. FIG. 4 - Token transformation examples across cue levels.
+31: 5. FIG. 5 - Persistence guard flow preventing transformed-to-canonical overwrite.
+32: Definitions
+33: 1. Canonical representation: authoritative stored text source used for save/load operations.
+34: 2. Transformed rehearsal representation: derived cue text used for practice display.
+35: 3. Hint level: user-controlled truncation parameter.
+36: 4. Line class: a categorized text line (for example title, hashtag, heading, speaker line) used for preservation rules.
+37: 5. Non-destructive mode: operation where transformed text does not overwrite canonical content.
+38: Detailed Description
+39: 1. System Overview
+40: The system includes:
+41: 1. a canonical text source buffer;
+42: 2. a transformation engine;
+43: 3. a transformed text output buffer;
+44: 4. a user interface controller including hint-level input;
+45: 5. a persistence controller enforcing non-destructive save constraints; and
+46: 6. optional cache coordination for offline/online regeneration.
+47: Canonical text is maintained in an unchanged source representation. On hint-level updates, the transformation engine deterministically regenerates transformed rehearsal text from canonical input.
+48: 2. Canonical and Transformed Representations
+49: In one embodiment, the canonical representation is maintained in a mirrored source pane or hidden canonical buffer. The transformed output is displayed in a practice pane. The transformed pane may be editable for interaction but is not accepted as canonical save content while transformation is active.
+50: 3. Line Classification and Preservation
+51: Before token transformation, lines are classified. Preserved classes can include:
+52: 1. first non-empty/title line;
+53: 2. hashtag-marked lines;
+54: 3. all-caps heading lines; and
+55: 4. speaker-identifier lines.
+56: Preserved lines are rendered with minimal or no truncation, while non-preserved lines are transformed according to hint level.
+57: 4. Token-Level Cue Transformation
+58: For non-preserved lines, each token is transformed based on hint level.
+59: 1. alphanumeric components are truncated to a retained prefix length;
+60: 2. punctuation marks are preserved;
+61: 3. emoji symbols are preserved;
+62: 4. transformed tokens are concatenated for output rendering.
+63: This produces progressive cues that maintain rhythm/shape/context while reducing direct lexical exposure.
+64: 5. Viewport-Aware Reflow
+65: After transformation, tokens are reflowed based on available viewport width to preserve readability and stable scrolling behavior. Reflow can be applied per line and regenerated on resize or environment changes.
+66: 6. Persistence Safeguards
+67: A save guard prevents transformed text from being persisted as canonical when hint level is non-zero (or transformation mode is active). To store canonical edits, the interface requires reset to full-source state. This preserves source integrity and prevents accidental corruption.
+68: 7. Offline/Online Regeneration
+69: When content is loaded from cache or server, canonical representation is restored first. The transformed representation is then regenerated from canonical using the active hint level. This ensures deterministic output regardless of connectivity state.
+70: This regeneration path is an optional embodiment and not required for the core trim-based non-destructive transformation method.
+71: 8. Example Workflow
+72: 1. Load canonical rehearsal text.
+73: 2. User sets hint level > 0.
+74: 3. System classifies lines and preserves selected classes.
+75: 4. Remaining tokens are truncated with punctuation/emoji retention.
+76: 5. Output is reflowed and rendered as transformed rehearsal view.
+77: 6. Save is blocked until hint level reset to canonical mode.
+78: 9. Technical Effects
+79: 1. improved memory-recall progression without source damage;
+80: 2. reduced rehearsal friction via deterministic cue generation;
+81: 3. consistent cross-session rendering due to canonical regeneration;
+82: 4. lower risk of accidental destructive saves.
+83: Reference Implementation Examples
+84: The following examples are explanatory embodiments that show one way to implement the claimed method and system. They do not limit claim scope.
+85: Example A: Cue Generation Pipeline (Pseudocode)
+86: function buildTransformedView(canonicalText, hintLevel, viewportWidth):
+87: lines = splitIntoLines(canonicalText)
+88: outputLines = []
+89: for line in lines:
+90: if isPreservedLineClass(line):
+91: outputLines.append(line)
+92: continue
+93: tokens = tokenize(line)
+94: transformedTokens = []
+95: for token in tokens:
+96: transformedTokens.append(transformToken(token, hintLevel))
+97: outputLines.append(joinTokens(transformedTokens))
+98: return reflowByViewport(outputLines, viewportWidth)
+99: What this does: Generates a transformed rehearsal representation from canonical representation by preserving configured line classes and truncating remaining tokens according to hint level.
+100: Why this matters: Shows deterministic cue generation that protects semantic structure while reducing direct lexical exposure.
+101: Example B: Save Guard Enforcement (Implementation-Style)
+102: function canPersistCanonical(hintLevel, transformModeActive) {
+103: // Canonical writes are only allowed in full-source mode.
+104: return hintLevel === 0 && transformModeActive === false;
+105: }
+106: function saveCanonical(sourceText, transformedText, hintLevel, transformModeActive) {
+107: if (!canPersistCanonical(hintLevel, transformModeActive)) {
+108: throw new Error("Save blocked: transformed rehearsal state cannot overwrite canonical text.");
+109: }
+110: persistCanonicalText(sourceText);
+111: }
+112: What this does: Blocks canonical persistence whenever transformation mode is active or hint level is not at full-source mode.
+113: Why this matters: Implements the non-destructive safeguard that prevents transformed rehearsal text from overwriting canonical source text.
+114: Example C: Deterministic Regeneration on Reload (Pseudocode)
+115: onLoad(itemId):
+116: canonical = loadCanonical(itemId)
+117: hintLevel = loadUserHintLevel(itemId)
+118: transformed = buildTransformedView(canonical, hintLevel, currentViewportWidth())
+119: renderCanonicalAndTransformed(canonical, transformed)
+120: What this does: Restores canonical representation first, then regenerates transformed representation from the same canonical input and active hint level.
+121: Why this matters: Demonstrates consistent behavior across online/offline reload states.
+122: Example Claim Set
+123: Independent Claim 1 (Method)
+124: 1. A computer-implemented method for rehearsal recall training, comprising:
+125: 2. storing canonical text for a rehearsal item in a first representation;
+126: 3. generating, from the canonical text, a transformed rehearsal representation by truncating words according to a user-selectable hint level;
+127: 4. preserving predefined line classes from truncation, the line classes including at least one of title lines, hashtag-marked lines, and all-caps heading lines;
+128: 5. rendering the transformed rehearsal representation in a user-facing text viewport while retaining the canonical text unchanged in a separate source representation; and
+129: 6. preventing persistence of transformed text as canonical text while truncation mode is active.
+130: Dependent Claims
+131: 2. The method of claim 1, wherein punctuation is preserved while alphanumeric token portions are truncated.
+132: 3. The method of claim 1, wherein emoji characters are preserved during token truncation.
+133: 4. The method of claim 1, wherein transformed text is reflowed based on viewport width.
+134: 5. The method of claim 1, wherein a first non-empty line is excluded from truncation.
+135: 6. The method of claim 1, wherein hashtag-containing lines are excluded from truncation.
+136: 7. The method of claim 1, wherein all-caps heading lines are excluded from truncation.
+137: 8. The method of claim 1, wherein speaker-identifier lines are excluded from truncation.
+138: 9. The method of claim 1, wherein truncation level is set by a slider control.
+139: 10. The method of claim 1, wherein resetting the truncation level restores full canonical rendering.
+140: 11. The method of claim 1, wherein transformed representation is regenerated after offline cache load.
+141: 12. The method of claim 1, wherein transformed representation is regenerated after online content refresh.
+142: 13. The method of claim 1, wherein transformed representation is generated from sanitized canonical HTML.
+143: 14. The method of claim 1, wherein transformed text rendering preserves line breaks from canonical content.
+144: 15. The method of claim 1, wherein save operations are rejected while truncation level exceeds a threshold value corresponding to canonical mode.
+145: 16. The method of claim 1, wherein transformed text generation is deterministic for a fixed canonical input and hint level.
+146: Independent Claim 17 (System)
+147: 17. A rehearsal memory training system comprising:
+148: 18. a canonical text store;
+149: 19. a transformation engine configured to generate truncated cue text from canonical text according to a user-selected hint level and line-preservation rules;
+150: 20. a rendering engine configured to present transformed cue text in a practice viewport while preserving canonical text unchanged; and
+151: 21. a persistence guard configured to block writes of transformed cue text into the canonical text store while transformation mode is active.
+152: Dependent Claims
+153: 18. The system of claim 17, wherein the transformation engine preserves punctuation and emoji in transformed cue text.
+154: 19. The system of claim 17, wherein the rendering engine reflows transformed cue text based on viewport width.
+155: 20. The system of claim 17, further comprising a cache synchronization module configured to regenerate transformed cue text from canonical text after online or offline reload.
+156: Abstract
+157: Disclosed is a computer-implemented rehearsal recall system that generates progressive memory cues from canonical text without destructive source modification. Canonical text is retained in a first representation while a transformed rehearsal representation is generated by token truncation according to a user-selected hint level. Line-preservation rules exempt semantically important line classes, including title and heading-like lines, from truncation. The transformed representation is rendered for practice with viewport-aware reflow. Persistence safeguards prevent transformed practice text from being saved as canonical text while transformation mode is active. The system supports deterministic regeneration of transformed cues after online or offline load, enabling consistent rehearsal progression and reduced source-corruption risk.
+158: Drawings
+159: FIG. 1
+160: System architecture showing canonical store, transformation engine, and rehearsal viewport.
+161: FIG. 2
+162: Dual-representation data flow (canonical text -> transformed cues -> render).
+163: FIG. 3
+164: Line classification pipeline for preserve-vs-trim decisioning.
+165: FIG. 4
+166: Token transformation examples across cue levels.
+167: FIG. 5
+168: Persistence guard flow preventing transformed-to-canonical overwrite.

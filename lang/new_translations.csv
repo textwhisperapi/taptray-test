@@ -1,0 +1,218 @@
+source,key,en,reuse_key,existing_reusable_key
+Source,Key,English,Reuse existing key if possible,Existing reusable key
+JSDrawingXMLView.js - PDF XML toggle tooltip,back_to_pdf,Back to PDF,,no
+JSDrawingXMLView.js - PDF XML toggle tooltip,open_player,Open player,,no
+JSDrawingXMLView.js - XML play tooltip,start,Start,,no
+JSDrawingXMLView.js - XML play tooltip,stop,Stop,,no
+JSDrawingPDF.js - cloud import section label,import_cloud_files,Import cloud files,,no
+JSDrawingPDF.js - Dropbox import button,choose_dropbox,Choose Dropbox,,no
+JSDrawingPDF.js - Google Drive import button,choose_google_drive,Choose Google Drive,,no
+JSDrawingPDF.js - IMSLP search placeholder,search_placeholder,Search,search,yes
+JSDrawingPDF.js - IMSLP search button,search,Search,search,yes
+chatManageInvite.php - invite button,invite,Invite,,no
+chatManageInvite.php - invited users loading,loading_invited_users,Loading invited users,,no
+JSCreateImportPDFs.js - no active list alert,open_select_list_first,Open or select a list first,,no
+JSCreateImportPDFs.js - modal title,import_pdfs_to_items,Import PDFs to items,,no
+JSCreateImportPDFs.js - list label,list,List,,no
+JSCreateImportPDFs.js - token label,token,Token,,no
+JSCreateImportPDFs.js - modal close button,close,Close,close,yes
+JSCreateImportPDFs.js - drop zone text,drop_pdfs_here,Drop PDFs here,,no
+JSCreateImportPDFs.js - browse button,browse,Browse,,no
+JSCreateImportPDFs.js - pending heading,pending,Pending,pending,yes
+JSCreateImportPDFs.js - commit button,commit_import,Import,,no
+JSCreateImportPDFs.js - clear button,clear,Clear,,no
+JSCreateImportPDFs.js - file row status,pending,pending,pending,yes
+JSCreateImportPDFs.js - remove file button,remove,Remove,,no
+JSCreateImportPDFs.js - empty import alert,no_files_to_import,No files to import,,no
+JSCreateImportPDFs.js - import status,importing_files,Importing files,,no
+JSCreateImportPDFs.js - missing current list,no_current_list_selected,No current list selected,,no
+JSCreateImportPDFs.js - skipped status,skipped,Skipped,,no
+JSCreateImportPDFs.js - done status,done,Done,,no
+JSCreateImportPDFs.js - failed status,failed,Failed,,no
+JSCreateImportPDFs.js - Dropbox chooser error,dropbox_chooser_failed,Dropbox chooser failed,,no
+JSCreateImportPDFs.js - Google API error,google_api_not_loaded,Google API not loaded yet,,no
+JSCreateImportPDFs.js - Google Drive import error,google_drive_import_failed,Google Drive import failed,,no
+JSFunctions.js - home tab,tutorials,Tutorials,,no
+JSFunctions.js - home tab,event_planner,Event planner,,no
+JSFunctions.js - home tab,current_profile,Current profile,,no
+JSFunctions.js - friend action menu,go_to_profile,Go to profile,,no
+JSFunctions.js - friend action menu,chat,Chat,,no
+chat.php - invite role option,viewer,Viewer,,no
+chat.php - invite role option,commenter,Commenter,,no
+chat.php - invite role option,editor,Editor,,no
+chat.php - chat header tooltip,settings,Settings,settings,yes
+chat.php - back tooltip,back,Back,,no
+chat.php - chat title,list_chat,List chat,list_chat,yes
+chat.php - close tooltip,close,Close,close,yes
+chat.php - menu item,members,members,members,yes
+chat.php - menu item,name,Name,,no
+chat.php - menu item,add,Add,,no
+chat.php - menu item,pause,Pause,,no
+chat.php - menu item,leave,Leave,,no
+chat.php - menu item,delete,Delete,delete,yes
+chatFunctions.js - reaction remove title,remove,Remove,,no
+chatFunctions.js - invalid email alert,enter_valid_email,Please enter a valid email address,,no
+chatFunctions.js - invite success,invite_sent,Invite sent,,no
+chatFunctions.js - generic request error,request_failed,Request failed,,no
+chatFunctions.js - loading access list,loading,Loading,loading,yes
+chatFunctions.js - access list error,error_loading_data,Error loading data,,no
+chatFunctions.js - access revoke confirm,remove_access_for,Remove access for,,no
+chatFunctions.js - remove own reaction confirm,remove_your_reaction,Remove your reaction,,no
+chatFunctions.js - poll network error,unable_reach_poll_service,Unable to reach poll service,,no
+chatFunctions.js - poll save error,unable_save_vote,Unable to save vote,,no
+chatFunctions.js - poll response error,unexpected_poll_response,Unexpected poll response,,no
+chatFunctions.js - delete message action,delete_message,Delete message,,no
+chatFunctions.js - self action,resume,Resume,,no
+chatFunctions.js - self action,pause,Pause,,no
+chatFunctions.js - self action,leave,Leave,,no
+chatFunctions.js - member action,remove,Remove,,no
+chatFunctions.js - member status,member,Member,,no
+chatFunctions.js - self suffix,you,You,,no
+chatFunctions.js - candidate action,add,Add,,no
+chatFunctions.js - member panel heading,members,members,members,yes
+chatFunctions.js - member panel empty,no_members,No members,,no
+chatFunctions.js - candidate panel heading,add_people,Add people,,no
+chatFunctions.js - candidate panel empty,no_matching_friends,No matching friends,,no
+chatFunctions.js - reset header,list_chat,List chat,list_chat,yes
+chatFunctions.js - delete chat confirm,delete_chat,Delete chat,,no
+chatFunctions.js - chat service error,service_unavailable,Service unavailable,,no
+chatFunctions.js - response error,unexpected_response,Unexpected response,,no
+chatFunctions.js - delete failure,delete_failed,Delete failed,,no
+chatFunctions.js - delete success all,deleted_for_all,Deleted for all,,no
+chatFunctions.js - delete success self,deleted_for_you,Deleted for you,,no
+chatFunctions.js - paused chat label,resume_chat,Resume chat,,no
+chatFunctions.js - paused chat label,pause_chat,Pause chat,,no
+chatFunctions.js - thread only action,thread_only_rename,Rename is available for thread chats,,no
+chatFunctions.js - thread only action,thread_only_add_people,Add people is available for thread chats,,no
+chatFunctions.js - thread only action,thread_only_pause,Pause is available for thread chats,,no
+chatFunctions.js - thread only action,thread_only_leave,Leave is available for thread chats,,no
+musicPanel.js - piano button,piano,Piano,,no
+musicPanel.js - record panel title,record_music,Record music,record_music,no
+musicPanel.js - recording option,noise_suppression,Noise suppression,,no
+musicPanel.js - recording option,echo_cancellation,Echo cancellation,,no
+musicPanel.js - recording option,auto_gain,Auto gain control,,no
+musicPanel.js - recording name placeholder,enter_name,Enter name,,no
+musicPanel.js - action,upload,Upload,,no
+musicPanel.js - action,discard,Discard,,no
+sub_settings.php - profile save status,saving,Saving,,no
+sub_settings.php - profile save status,saved,Saved,,no
+sub_settings.php - profile save error,update_failed,Update failed,,no
+sub_settings.php - image picker prompt,choose_image_first,Choose an image first,,no
+sub_settings.php - image processing status,processing,Processing,,no
+sub_settings.php - upload status,uploading,Uploading,,no
+sub_settings.php - upload status,uploaded,Uploaded,,no
+sub_settings.php - upload error,upload_failed,Upload failed,,no
+sub_settings.php - onboarding hint,add_profile_image_or_skip,Add a profile image now, or skip for now.,,no
+sub_settings.php - preferences heading,preferences,Preferences,preferences,yes
+sub_settings.php - preferences subtitle,preferences_hint,Local settings,,no
+sub_settings.php - section chip,auto_saves,Auto-saves,,no
+sub_settings.php - custom mode placeholder,custom_page_placeholder,URL or PDF ID,,no
+sub_settings.php - custom mode validation,custom_page_https_only,Custom page must be an https URL,,no
+index.php - find input,find,Find,,no
+index.php - replace input,replace_with,Replace with,,no
+index.php - find next button,find_next,Find next,,no
+index.php - replace button,replace,Replace,,no
+index.php - replace all button,replace_all,Replace all,,no
+index.php - skin name,legacy_dark,Legacy Dark,,no
+index.php - skin name,silver,Silver,,no
+index.php - skin name,gold,Gold,,no
+index.php - skin name,blue,Blue,,no
+index.php - skin name,rose,Rose,,no
+index.php - skin name,green,Green,,no
+index.php - skin name,red,Red,,no
+index.php - skin name,purple,Purple,,no
+index.php - create button,create,Create,,no
+index.php - MusicXML selector aria,select_musicxml_file,Select MusicXML file,,no
+index.php - MusicXML empty option,no_musicxml,No MusicXML,,no
+index.php - MusicXML delete title,delete_selected_musicxml,Delete selected MusicXML,,no
+index.php - role select empty,no_role_options,No role options,,no
+index.php - role select placeholder,select_role,Select role,,no
+index.php - avatar onboarding status,preview_ready_click_save,Preview ready. Click Save to upload.,,no
+index.php - avatar onboarding status,saving,Saving,,no
+index.php - avatar onboarding status,saved,Saved,,no
+index.php - avatar onboarding status,save_failed,Save failed,,no
+index.php - footer tab title,sidebar,Sidebar,,no
+index.php - footer tab title,text,Text,text,yes
+index.php - footer tab title,music,Music,,no
+index.php - footer tab title,chat,Chat,chat,no
+index.php - footer tab title,event_planner,Event planner,,no
+index.php - footer tab title,file_manager,File manager,,no
+index.php - footer tab title,fullscreen,Fullscreen,,no
+index.php - play owner title,play_mode_owner,Play mode owner,,no
+login.php - separator,or,or,or,yes
+login.php - recent profiles header,recent_profiles_on_device,Recent profiles on this device,,no
+login.php - clear recent profiles,clear,Clear,,no
+login.php - field label,email_or_username,Email or Username,,no
+login.php - field label,password,Password,,no
+login.php - checkbox,stay_logged_in,Stay logged in,,no
+login.php - checkbox,logout_other_devices,Logout from all other devices,,no
+login.php - button,login,Login,login,yes
+login.php - link,forgot_password,Forgot password,,no
+login.php - link,no_account_register,Don't have an account? Register here,,no
+login.php - button,back,Back,,no
+login.php - logged in state,logged_in_as,You're logged in as,,no
+login.php - NDA link label,view_nda_version,View NDA version,,no
+login.php - NDA status,nda_not_accepted,NDA not yet accepted,,no
+login.php - checkbox,remove_recent_profile,Remove from Recent profiles on this device,,no
+login.php - button,logout,Logout,logout,yes
+login.php - section title,active_sessions,Active sessions,,no
+login.php - session type,temporary,Temporary,,no
+login.php - session type,remembered,Remembered,,no
+login.php - session marker,this_browser,This browser,,no
+login.php - session meta,expires,Expires,,no
+login.php - button,logout_selected,Logout selected,,no
+login.php - button,logout_all_devices,Logout all devices,,no
+login.php - resend verification,verification_email_sent,Verification email sent. Please check your inbox.,,no
+login.php - resend verification,resend_verification_failed,Could not resend verification email,,no
+login.php - network error,network_error_try_again,Network error. Please try again later.,,no
+login.php - NDA alert,agree_nda_before_login,Please agree to the Basic NDA before logging in.,,no
+login.php - auto login error,auto_login_failed,Could not auto-login this profile. Please enter password.,,no
+login.php - NDA alert,accept_nda_before_login,Please accept the Basic NDA before logging in.,,no
+register.php - page title,create_account,Create your account,,no
+register.php - invite error,google_email_invite_mismatch,Google account email does not match the invited email.,,no
+register.php - invite error,invite_invalid_or_expired,Invite link is invalid or expired. Please ask for a new invite.,,no
+register.php - field label,display_name,Display name,,no
+register.php - field placeholder,your_name,Your name,,no
+register.php - field label,email_address,Email address,,no
+register.php - field label,user_id_auto,User ID (auto-generated from email),,no
+register.php - username suffix prompt,user_id_taken_add_suffix,This User ID is taken. Add a suffix.,,no
+register.php - password hint,password_rules_short,Contains 6+ chars, A-Z, a-z, 0-9,,no
+register.php - confirm password hint,repeat_password,Repeat password exactly,,no
+register.php - button,register,Register,,no
+register.php - invite notice,registering_from_invite,You're registering from an invite link. If your email matches the invite, we'll verify it automatically.,,no
+register.php - confirmation notice,registration_confirmation_email,You will get a confirmation email to finish the registration.,,no
+register.php - return link,return_to_login,Return to the login page.,,no
+register.php - validation rule,email_valid_format,Email must have a valid format.,,no
+register.php - validation rule,password_min_length,Password must be at least 6 characters.,,no
+register.php - validation rule,password_uppercase,Password must contain at least one uppercase letter.,,no
+register.php - validation rule,password_lowercase,Password must contain at least one lowercase letter.,,no
+register.php - validation rule,password_number,Password must contain at least one number.,,no
+register.php - validation rule,passwords_must_match,Your password and confirmation must match.,,no
+register.php - availability status,email_already_registered,This email is already registered.,,no
+register.php - availability status,email_available,Email is available.,,no
+register.php - availability status,email_check_skipped,Email check skipped.,,no
+register.php - availability status,error_checking_availability,Error checking availability.,,no
+register.php - resend verification,verification_if_needed_sent,If the account exists and is not verified, a verification email has been sent.,,no
+register.php - resend verification,verification_send_failed,Could not send verification email. Please try again later.,,no
+forgot_password.php - page title,reset_your_password,Reset your password,,no
+forgot_password.php - field label,enter_your_email,Enter your email,,no
+forgot_password.php - button,send_reset_link,Send reset link,,no
+forgot_password.php - note,reset_link_if_email_exists,If the email exists, you will receive a reset link shortly.,,no
+forgot_password.php - note,check_spam_folder,Please check your spam or junk folder if it doesn't arrive.,,no
+forgot_password.php - loading,sending_request,Sending request,,no
+forgot_password.php - error,invalid_email_address,Please enter a valid email address.,,no
+forgot_password.php - error,database_error_try_later,Database error. Please try again later.,,no
+forgot_password.php - error,reset_token_generate_failed,Could not generate reset token. Please try again.,,no
+forgot_password.php - success,password_reset_email_sent,We've emailed a password reset link.,,no
+forgot_password.php - error,reset_email_send_failed,We could not send the reset email. Please try again shortly.,,no
+forgot_password.php - error,no_account_for_email,No account found with that email address.,,no
+reset_password.php - error,no_reset_token,No reset token provided.,,no
+reset_password.php - error,invalid_reset_token_format,Invalid reset token format.,,no
+reset_password.php - error,invalid_or_expired_token,Invalid or expired token.,,no
+reset_password.php - error,database_error_try_later,Database error. Please try again later.,,no
+reset_password.php - error,enter_new_password,Please enter a new password.,,no
+reset_password.php - error,password_update_failed,Error updating password. Please try again.,,no
+reset_password.php - error,prepare_update_failed,Error preparing update statement.,,no
+reset_password.php - page title,reset_password,Reset password,,no
+reset_password.php - field label,new_password,New password,,no
+reset_password.php - button,reset_password,Reset password,,no

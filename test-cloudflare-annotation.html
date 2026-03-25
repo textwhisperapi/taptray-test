@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cloudflare Annotation Test</title>
+  <style>
+    body {
+      background: #ccc;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      flex-direction: column;
+      font-family: sans-serif;
+    }
+    canvas {
+      border: 3px solid lime;
+      background: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+  <h2>🧪 Cloudflare Annotation PNG Test</h2>
+  <canvas id="testCanvas" width="1274" height="1767"></canvas>
+
+  <script>
+    //const url = "https://pub-1afc23a510c147a5a857168f23ff6db8.r2.dev/threstir/annotations/annotation-979-p1.png";
+    const url = "https://r2-worker.textwhisper.workers.dev/threstir/annotations/annotation-979-p1.png";
+    const canvas = document.getElementById("testCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+
+    img.onload = () => {
+      console.log("✅ Loaded:", img.width, "x", img.height);
+
+      ctx.save();
+      ctx.globalAlpha = 1.0;
+      ctx.globalCompositeOperation = "source-over";
+
+      // Fill a white background (important for transparency visibility)
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw and scale annotation to fit canvas
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      ctx.restore();
+
+      console.log("✅ Draw complete");
+    };
+
+    img.onerror = e => console.error("❌ Image load failed", e);
+    img.src = url;
+  </script>
+</body>
+</html>

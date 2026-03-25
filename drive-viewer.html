@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TextWhisper PDF Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 1rem;
+      background: #f4f4f4;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px 0;
+      width: 90%;
+      max-width: 600px;
+      font-size: 1rem;
+    }
+    button {
+      margin-top: 10px;
+    }
+    canvas {
+      display: block;
+      margin: 20px auto;
+      width: 100%;
+      max-width: 800px;
+      background: white;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+    #fileList {
+      margin-top: 20px;
+      font-family: monospace;
+    }
+    #fileList div {
+      margin: 5px 0;
+      cursor: pointer;
+      color: blue;
+    }
+    #fileList div:hover {
+      text-decoration: underline;
+    }
+  </style>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<script>
+const CLIENT_ID = "369727358007-n2543njdrevmkga7h64o04q8c1id5kvm.apps.googleusercontent.com";
+const SCOPES = "https://www.googleapis.com/auth/drive.readonly";
+let accessToken = null;
+let tokenClient;
+
+window.onload = () => {
+  accessToken = localStorage.getItem('accessToken');
+
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: (resp) => {
+      if (resp.access_token) {
+        accessToken = resp.access_token;
+        localStorage.setItem('accessToken', accessToken);
+        console.log("✅ Logged in successfully");
+      } else {
+        alert("❌ Google login failed.");
+      }
+    }
+  });
+
+  if (!accessToken) {
+    tokenClient.requestAccessToken({ prompt: "none" });
+  } else {
+    console.log("✅ Reusing stored accessToken.");
+  }
+};
+
+function detectLinkType(url) {
+  if (url.includes("/folders/")) {
+    return "folder";
+  } else if (url.includes("/file/d/") || /^[a-zA-Z0-9_-]{20,}$/.test(url)) {
+    return "file";
+  } else {
+    return "public";
+  }
+}
+
+function extractFileId(input) {
+  const match = input.match(/\/file\/d\/([a-zA-Z0-9_-]{20,})/);
+  if (match) return match[1];
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(input)) return input;
+  return null;
+}
+
+function extractFolderId(url) {
+  const match = url.match(/\/folders\/([a-zA-Z0-9_-]{20,})/);
+  return match ? match[1] : null;
+}
+
+async function listFolderFiles(folderId) {
+  const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&fields=files(id,name,mimeType)`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  const data = await res.json();
+  return data.files || [];
+}
+
+async function loadPDF(fileIdOrUrl) {
+  let url = "";
+  let isDriveFile = false;
+  const display = document.getElementById("fileIdDisplay");
+
+  if (fileIdOrUrl.includes("drive.google.com") || /^[a-zA-Z0-9_-]{20,}$/.test(fileIdOrUrl)) {
+    const fileId = extractFileId(fileIdOrUrl);
+
+    if (!fileId) {
+      display.textContent = "❌ Invalid Google Drive link or File ID.";
+      return;
+    }
+
+    display.textContent = `✅ Extracted Google Drive File ID: ${fileId}`;
+
+    if (!accessToken) {
+      alert("🔒 Please sign in with Google before loading a Drive PDF.");
+      return;
+    }
+
+    url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+    isDriveFile = true;
+  } else {
+    display.textContent = "🌐 Public file detected.";
+    url = `/api/proxy.php?url=${encodeURIComponent(fileIdOrUrl)}`;
+  }
+
+  try {
+    const headers = isDriveFile ? { Authorization: `Bearer ${accessToken}` } : {};
+    const res = await fetch(url, { headers });
+
+    if (!res.ok) throw new Error(`Fetch error: ${res.status}`);
+
+    const contentType = res.headers.get("Content-Type") || "";
+    if (!contentType.includes("pdf")) {
+      throw new Error("❌ The fetched file is not a PDF.");
+    }
+
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    const pdf = await pdfjsLib.getDocument(blobUrl).promise;
+    const page = await pdf.getPage(1);
+
+    const scale = 1.5;
+    const viewport = page.getViewport({ scale });
+    const canvas = document.getElementById("pdfCanvas");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    console.log("📄 PDF rendered successfully.");
+  } catch (err) {
+    console.error("❌ Error loading PDF:", err);
+    alert("❌ PDF failed to load. See console.");
+  }
+}
+
+async function handleInput() {
+  const input = document.getElementById("pdfInput").value.trim();
+  const type = detectLinkType(input);
+
+  document.getElementById("fileList").innerHTML = ""; // Clear file list
+  const ctx = document.getElementById("pdfCanvas").getContext("2d");
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // Clear canvas
+
+  if (type === "folder") {
+    // 🔥 Open the folder link in a new tab
+    window.open(input, '_blank');
+    return;
+  } else {
+    await loadPDF(input);
+  }
+}
+
+
+function loginWithGoogle() {
+  tokenClient.requestAccessToken({ prompt: "consent" });
+}
+</script>
+</head>
+<body>
+  <h2>🔐 TextWhisper PDF Viewer</h2>
+  <input id="pdfInput" placeholder="Paste Google Drive URL / Folder / Public PDF..." />
+  <button onclick="handleInput()">🚀 Open Link</button>
+  <button onclick="loginWithGoogle()">🔑 Sign in with Google</button>
+  <p id="fileIdDisplay"></p>
+  <div id="fileList"></div>
+  <canvas id="pdfCanvas"></canvas>
+</body>
+</html>

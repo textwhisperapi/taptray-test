@@ -1,0 +1,36 @@
+Avatar backup recovery report - 2026-02-07 01:31:44Z
+
+Current active folder: /var/www/textwhisper-test/uploads/avatars
+  avatar_31_1768837984_0e2feaa4.jpg
+  avatar_438_1770424862_44f6cdd2.jpg
+  avatar_45_1768577563_f6ec75d3.jpg
+  avatar_45_1768577736_06352ade.jpg
+  avatar_45_1768578845_9c5ccb53.jpg
+
+Missing from current but found in backups:
+  avatar_31_1768585410_66601111.jpg
+    - /var/www/textwhisper-live-3.0.11/uploads/avatars/avatar_31_1768585410_66601111.jpg
+  avatar_31_1768585658_92d44f46.jpg
+    - /var/www/textwhisper-live-3.0.11/uploads/avatars/avatar_31_1768585658_92d44f46.jpg
+  avatar_394_1769690337_d3e89cd3.jpg
+    - /var/www/textwhisper-live-2026-01-29_16-57/uploads/avatars/avatar_394_1769690337_d3e89cd3.jpg
+  avatar_438_1770071383_87e44690.jpg
+    - /var/www/textwhisper-live-2026-02-06_17-29/uploads/avatars/avatar_438_1770071383_87e44690.jpg
+  avatar_454_1769384609_411fd2ee.jpg
+    - /var/www/textwhisper-live-3.2.7/uploads/avatars/avatar_454_1769384609_411fd2ee.jpg
+  avatar_455_1768860851_5e8cf790.jpg
+    - /var/www/textwhisper-live-3.1.0/uploads/avatars/avatar_455_1768860851_5e8cf790.jpg
+  avatar_463_1768667933_52c9a2a9.jpg
+    - /var/www/textwhisper-live-3.1.0/uploads/avatars/avatar_463_1768667933_52c9a2a9.jpg
+  avatar_478_1769459921_db2e3112.jpg
+    - /var/www/textwhisper-live-3.2.12/uploads/avatars/avatar_478_1769459921_db2e3112.jpg
+  avatar_479_1769460761_e0d98f7b.jpg
+    - /var/www/textwhisper-live-3.2.12/uploads/avatars/avatar_479_1769460761_e0d98f7b.jpg
+  avatar_484_1769460554_2796f694.jpg
+    - /var/www/textwhisper-live-3.2.12/uploads/avatars/avatar_484_1769460554_2796f694.jpg
+  avatar_488_1769459354_1752fcc8.jpg
+    - /var/www/textwhisper-live-3.2.12/uploads/avatars/avatar_488_1769459354_1752fcc8.jpg
+  avatar_501_1769459254_7803aadd.jpg
+    - /var/www/textwhisper-live-3.2.12/uploads/avatars/avatar_501_1769459254_7803aadd.jpg
+  avatar_505_1769460159_c3795ade.jpg
+    - /var/www/textwhisper-live-3.2.12/uploads/avatars/avatar_505_1769460159_c3795ade.jpg

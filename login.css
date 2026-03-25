@@ -1,0 +1,399 @@
+/* ========================================= */
+/* TextWhisper: Auth Pages (Register, Login) */
+/* ========================================= */
+
+body {
+  --auth-bg-top: #f7f9fc;
+  --auth-bg-bottom: #e8eef7;
+  --auth-card: #ffffff;
+  --auth-border: #d8e2f0;
+  --auth-primary: #1f5faa;
+  --auth-primary-dark: #154a86;
+  --auth-text: #1f2a37;
+  --auth-subtext: #5c6f86;
+  --auth-focus: #5fa3ff;
+
+  font-family: "Trebuchet MS", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  background: linear-gradient(180deg, var(--auth-bg-top) 0%, var(--auth-bg-bottom) 100%);
+  margin: 0;
+  padding: 18px 12px;
+  display: block;
+  min-height: 100vh;
+  color: var(--auth-text);
+}
+
+.login-center-block {
+  text-align: center;
+  margin-bottom: 1em;
+}
+
+.google-login-button img {
+  max-width: 250px;
+  height: auto;
+  display: inline-block;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(31, 95, 170, 0.14);
+}
+
+.nda-agreement {
+  font-size: 0.88rem;
+  margin-top: 2px;
+  color: var(--auth-subtext);
+}
+
+.login-separator {
+  font-size: 0.9rem;
+  color: #5f7290;
+  margin: 10px 0 2px;
+  letter-spacing: 0.03em;
+}
+
+
+.auth-container {
+  width: 100%;
+  max-width: 640px;
+  margin: 40px auto 20px auto;
+  padding: 24px 20px 18px;
+  border: 1px solid var(--auth-border);
+  border-radius: 18px;
+  background: var(--auth-card);
+  box-shadow: 0 14px 30px rgba(12, 40, 78, 0.12);
+  box-sizing: border-box;
+}
+
+/* Heading */
+h1 {
+  text-align: center;
+  color: var(--auth-text);
+  font-size: 1.95rem;
+  margin-bottom: 18px;
+  line-height: 1.2;
+  word-break: keep-all;
+  letter-spacing: -0.01em;
+}
+
+/* Form layout */
+form {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 18px 18px 14px;
+  border: 1px solid #e5ebf5;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-sizing: border-box;
+}
+
+.recent-users {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid #d6deea;
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.recent-users-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  color: #2d3d52;
+  font-size: 0.9rem;
+}
+
+.recent-users-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recent-users-empty {
+  color: #5e6d7f;
+  font-size: 0.9rem;
+}
+
+.recent-profile-btn {
+  margin-top: 0;
+  width: auto;
+  padding: 9px 12px;
+  background: #ffffff;
+  color: #1f3a5a;
+  border: 1px solid #aac3e3;
+  border-radius: 14px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.recent-profile-btn:hover {
+  background: #ecf4ff;
+  border-color: #7ca9db;
+}
+
+.recent-profile-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #d1dced;
+  background: #fff;
+}
+
+.recent-profile-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.recent-profile-name {
+  color: #22354d;
+  font-size: 0.96rem;
+}
+
+.recent-profile-username {
+  color: #6b7d95;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.recent-clear-btn {
+  margin-top: 0;
+  width: auto;
+  padding: 6px 10px;
+  background: #f1f1f1;
+  color: #444;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.recent-clear-btn:hover {
+  background: #e7e7e7;
+}
+
+label {
+  font-weight: 600;
+  margin-top: 14px;
+  display: block;
+  color: #314863;
+  font-size: 0.95rem;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  font-size: 1rem;
+  margin-top: 6px;
+  border-radius: 6px;
+  border: 1px solid #c7d2e2;
+  background: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus {
+  border-color: var(--auth-focus);
+  box-shadow: 0 0 0 3px rgba(95, 163, 255, 0.2);
+  outline: none;
+}
+
+/* Username group layout */
+.username-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+#usernamePrefix {
+  font-weight: 500;
+  font-family: monospace;
+  font-size: 1rem;
+  color: #555;
+}
+
+#usernameSuffix {
+  flex-grow: 1;
+  padding: 8px 10px;
+  font-size: 1rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  width: 120px;
+}
+
+/* Buttons */
+button {
+  margin-top: 18px;
+  width: 100%;
+  padding: 11px;
+  background: linear-gradient(180deg, var(--auth-primary) 0%, var(--auth-primary-dark) 100%);
+  color: white;
+  border: none;
+  border-radius: 9px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.2s ease;
+}
+
+button:hover {
+  filter: brightness(1.05);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+/* Alerts / feedback */
+.error {
+  background: #fff2f2;
+  color: #8c1515;
+  border: 1px solid #f0b2b2;
+  padding: 11px 12px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  font-size: 0.94rem;
+}
+
+#emailStatus {
+  font-size: 0.9em;
+  margin-top: 4px;
+  padding-left: 2px;
+}
+
+/* Instructional notes */
+ul {
+  padding-left: 20px;
+  font-size: 0.95rem;
+  color: #444;
+}
+
+ul li {
+  margin-bottom: 6px;
+}
+
+/* Footer & links */
+a {
+  color: var(--auth-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Confirmation message */
+.confirmation-message {
+  background-color: #eef9ef;
+  border: 1px solid #9cd2a0;
+  color: #265f2d;
+  padding: 12px 16px;
+  border-radius: 10px;
+  text-align: center;
+  margin-top: 20px;
+  font-size: 1rem;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 10px;
+  font-size: 0.95rem;
+}
+
+/* Form note block (password/email rules) */
+.form-note {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 20px;
+  padding-top: 10px;
+  border-top: 1px solid #ddd;
+}
+
+.form-note ul {
+  padding-left: 20px;
+  margin: 0;
+}
+
+.form-note li {
+  margin-bottom: 4px;
+}
+
+/* Mobile adjustments */
+@media (max-width: 600px) {
+  .username-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #usernamePrefix {
+    margin-bottom: 4px;
+  }
+
+  #usernameSuffix {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 6px;
+  }
+
+  .auth-container {
+    margin: 10px auto;
+    padding: 14px 12px;
+    border-radius: 14px;
+  }
+
+  h1 {
+    font-size: 1.35rem;
+    margin-bottom: 12px;
+    white-space: normal;
+  }
+
+  label {
+    font-size: 0.85rem;
+    margin-top: 10px;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"] {
+    padding: 8px 10px;
+    font-size: 0.95rem;
+  }
+
+  button {
+    margin-top: 14px;
+    padding: 10px;
+    font-size: 0.95rem;
+  }
+
+  form {
+    padding: 10px 10px 8px;
+  }
+
+  .recent-users-list {
+    display: block;
+  }
+
+  .recent-profile-btn {
+    width: 100%;
+    margin-bottom: 6px;
+    text-align: left;
+  }
+
+  .form-note {
+    font-size: 0.75rem;
+    margin-top: 12px;
+    padding-top: 6px;
+  }
+}

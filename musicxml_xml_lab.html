@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>MusicXML XML Lab</title>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; background: #f8fafc; color: #111827; }
+    .top { position: sticky; top: 0; z-index: 5; background: #fff; border-bottom: 1px solid #d1d5db; padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .top input[type="text"] { width: 360px; max-width: 60vw; border: 1px solid #d1d5db; border-radius: 6px; padding: 7px 8px; font-size: 12px; }
+    button, select, input[type="file"] { border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #111827; font-size: 12px; padding: 7px 10px; }
+    button:hover { background: #f3f4f6; }
+    .meta { margin-left: auto; font-size: 12px; color: #4b5563; }
+    .wrap { padding: 10px; }
+    .panel { background: #fff; border: 1px solid #d1d5db; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+    .panel h3 { margin: 0; font-size: 13px; padding: 8px 10px; background: #f3f4f6; border-bottom: 1px solid #d1d5db; }
+    .mount { min-height: 180px; padding: 8px 10px; overflow: auto; }
+    .preview { margin: 0; white-space: pre-wrap; word-break: break-word; font-size: 11px; line-height: 1.35; }
+    #log { margin: 10px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; padding: 8px; white-space: pre-wrap; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <input id="xmlUrl" type="text" placeholder="MusicXML URL (optional)" />
+    <span style="font-size:12px;color:#4b5563;border:1px solid #d1d5db;border-radius:6px;padding:7px 10px;background:#fff;">Processor: test_omr cleanupMusicXmlText</span>
+    <button id="btnProcess">Process</button>
+    <button id="btnProcessRests">Process Rests</button>
+    <button id="btnStripSigns">Remove Signs/Perf</button>
+    <button id="btnDownloadOriginal" disabled>Download Original</button>
+    <button id="btnDownloadProcessed" disabled>Download Processed</button>
+    <div id="meta" class="meta">Idle</div>
+  </div>
+
+  <div class="wrap">
+    <div class="panel">
+      <h3>Original MusicXML (unprocessed)</h3>
+      <div id="originalMount" class="mount"></div>
+    </div>
+    <div class="panel">
+      <h3>Processed MusicXML</h3>
+      <div id="processedMount" class="mount"></div>
+    </div>
+  </div>
+  <pre id="log"></pre>
+
+  <script>
+    (async function () {
+      const qs = new URLSearchParams(window.location.search || '');
+      const xmlUrlInput = document.getElementById('xmlUrl');
+      const btnProcess = document.getElementById('btnProcess');
+      const btnProcessRests = document.getElementById('btnProcessRests');
+      const btnStripSigns = document.getElementById('btnStripSigns');
+      const btnDownloadOriginal = document.getElementById('btnDownloadOriginal');
+      const btnDownloadProcessed = document.getElementById('btnDownloadProcessed');
+      const meta = document.getElementById('meta');
+      const originalMount = document.getElementById('originalMount');
+      const processedMount = document.getElementById('processedMount');
+      const logEl = document.getElementById('log');
+
+      let originalText = '';
+      let processedText = '';
+      let originalName = 'original.musicxml';
+      let processedName = 'processed.musicxml';
+      let osmdOriginal = null;
+      let osmdProcessed = null;
+      let cleanupFromTestOmr = null;
+
+      const setMeta = (t) => { meta.textContent = String(t || ''); };
+      const setLog = (t) => { logEl.textContent = String(t || ''); };
+      const appendLog = (t) => { logEl.textContent = String(logEl.textContent || '') + (logEl.textContent ? '\n' : '') + String(t || ''); };
+
+      const loadScript = (src) => new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = true;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+
+      const isZipBytes = (buf) => {
+        const b = new Uint8Array(buf || new ArrayBuffer(0));
+        return b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && (b[2] === 0x03 || b[2] === 0x05 || b[2] === 0x07) && (b[3] === 0x04 || b[3] === 0x06 || b[3] === 0x08);
+      };
+
+      async function ensureJsZip() {
+        if (window.JSZip) return true;
+        try {
+          await loadScript('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js');
+          return !!window.JSZip;
+        } catch {
+          return false;
+        }
+      }
+
+      async function extractXmlFromMxl(buffer) {
+        const ok = await ensureJsZip();
+        if (!ok || !window.JSZip) return '';
+        const zip = await window.JSZip.loadAsync(buffer);
+        const c = zip.file('META-INF/container.xml');
+        if (c) {
+          const txt = await c.async('string');
+          const m = txt.match(/full-path\s*=\s*"([^"]+)"/i);
+          if (m?.[1] && zip.file(m[1])) return String(await zip.file(m[1]).async('string') || '');
+        }
+        const names = Object.keys(zip.files || {}).filter((n) => /\.xml$/i.test(n) && !/^META-INF\//i.test(n));
+        if (names.length && zip.file(names[0])) return String(await zip.file(names[0]).async('string') || '');
+        return '';
+      }
+
+      async function readXmlTextFromArrayBuffer(buffer) {
+        if (isZipBytes(buffer)) return extractXmlFromMxl(buffer);
+        return new TextDecoder('utf-8').decode(buffer || new ArrayBuffer(0));
+      }
+
+      async function fetchRawXml(url) {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const ab = await res.arrayBuffer();
+        return readXmlTextFromArrayBuffer(ab);
+      }
+
+      async function ensureOsmd() {
+        if (window.opensheetmusicdisplay?.OpenSheetMusicDisplay) return true;
+        try {
+          await loadScript('https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.8.9/build/opensheetmusicdisplay.min.js');
+          return !!window.opensheetmusicdisplay?.OpenSheetMusicDisplay;
+        } catch {
+          return false;
+        }
+      }
+
+      async function renderXmlInto(el, txt, slot) {
+        const text = String(txt || '');
+        el.innerHTML = '';
+        if (!text.trim()) {
+          el.innerHTML = '<pre class="preview">(empty)</pre>';
+          return;
+        }
+        const ok = await ensureOsmd();
+        if (!ok) {
+          const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          el.innerHTML = `<pre class="preview">${safe}</pre>`;
+          return;
+        }
+        try {
+          if (slot === 'orig') {
+            if (!osmdOriginal) osmdOriginal = new window.opensheetmusicdisplay.OpenSheetMusicDisplay(el, { autoResize: true, drawingParameters: 'compacttight', drawTitle: true });
+            await osmdOriginal.load(text);
+            await osmdOriginal.render();
+          } else {
+            if (!osmdProcessed) osmdProcessed = new window.opensheetmusicdisplay.OpenSheetMusicDisplay(el, { autoResize: true, drawingParameters: 'compacttight', drawTitle: true });
+            await osmdProcessed.load(text);
+            await osmdProcessed.render();
+          }
+        } catch (e) {
+          const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          el.innerHTML = `<pre class="preview">${safe}</pre>`;
+          appendLog(`Render fallback (${slot}): ${String(e?.message || e)}`);
+        }
+      }
+
+      function downloadText(filename, text) {
+        const blob = new Blob([String(text || '')], { type: 'application/vnd.recordare.musicxml+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => { try { URL.revokeObjectURL(url); } catch {} }, 1500);
+      }
+
+      function extractFunctionSource(html, fnName) {
+        const marker = `function ${fnName}(`;
+        const i = html.indexOf(marker);
+        if (i < 0) return '';
+        const brace = html.indexOf('{', i);
+        if (brace < 0) return '';
+        let depth = 0;
+        let j = brace;
+        while (j < html.length) {
+          const ch = html[j];
+          if (ch === '{') depth++;
+          if (ch === '}') {
+            depth--;
+            if (depth === 0) return html.slice(i, j + 1);
+          }
+          j++;
+        }
+        return '';
+      }
+
+      async function getCleanupFromTestOmr() {
+        if (cleanupFromTestOmr) return cleanupFromTestOmr;
+        const res = await fetch('/test_omr.html', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`test_omr fetch failed: HTTP ${res.status}`);
+        const html = await res.text();
+        const f1 = extractFunctionSource(html, 'cleanMusicXmlTextMaybe');
+        const f2 = extractFunctionSource(html, 'cleanupMusicXmlText');
+        if (!f2) throw new Error('cleanupMusicXmlText not found in test_omr.html');
+        const src = `${f1 || ''}\n${f2}\nreturn (typeof cleanMusicXmlTextMaybe === 'function' ? cleanMusicXmlTextMaybe : cleanupMusicXmlText);`;
+        cleanupFromTestOmr = new Function(src)();
+        return cleanupFromTestOmr;
+      }
+
+      async function processXml(text) {
+        const inText = String(text || '');
+        if (!inText.trim()) return '';
+        const fn = await getCleanupFromTestOmr();
+        return String(fn(inText) || '');
+      }
+      function processRestsOnly(xmlText) {
+        const raw = String(xmlText || '');
+        if (!raw.trim()) return raw;
+        try {
+          const doc = new DOMParser().parseFromString(raw, 'application/xml');
+          if (doc.getElementsByTagName('parsererror').length) return raw;
+          const localNameOf = (node) => {
+            const n = String(node?.localName || node?.nodeName || '').toLowerCase();
+            const i = n.indexOf(':');
+            return i >= 0 ? n.slice(i + 1) : n;
+          };
+          const overlaps = (a0, a1, b0, b1) => Math.min(a1, b1) > Math.max(a0, b0);
+          const mergeIntervals = (arr) => {
+            const src = (Array.isArray(arr) ? arr : [])
+              .map((x) => ({ start: Number(x.start || 0), end: Number(x.end || 0) }))
+              .filter((x) => x.end > x.start)
+              .sort((a, b) => a.start - b.start || a.end - b.end);
+            const out = [];
+            for (let i = 0; i < src.length; i++) {
+              const cur = src[i];
+              const prev = out[out.length - 1];
+              if (!prev || cur.start > prev.end) out.push(cur);
+              else prev.end = Math.max(prev.end, cur.end);
+            }
+            return out;
+          };
+          const getVoice = (noteEl) => {
+            const v = String(noteEl?.getElementsByTagNameNS('*', 'voice')[0]?.textContent || '').trim();
+            return v || '1';
+          };
+          const durationTypeFromDivisions = (dur, divisions) => {
+            const d = Number(dur || 0);
+            const div = Math.max(1, Number(divisions || 1));
+            const q = d / div;
+            if (Math.abs(q - 4) < 0.0001) return 'whole';
+            if (Math.abs(q - 2) < 0.0001) return 'half';
+            if (Math.abs(q - 1) < 0.0001) return 'quarter';
+            if (Math.abs(q - 0.5) < 0.0001) return 'eighth';
+            if (Math.abs(q - 0.25) < 0.0001) return '16th';
+            if (Math.abs(q - 0.125) < 0.0001) return '32nd';
+            return '';
+          };
+          const createBackupEl = (dur) => {
+            const b = doc.createElement('backup');
+            const d = doc.createElement('duration');
+            d.textContent = String(Math.max(1, Math.round(Number(dur || 1))));
+            b.appendChild(d);
+            return b;
+          };
+          const createForwardEl = (dur) => {
+            const f = doc.createElement('forward');
+            const d = doc.createElement('duration');
+            d.textContent = String(Math.max(1, Math.round(Number(dur || 1))));
+            f.appendChild(d);
+            return f;
+          };
+          const createRestNoteEl = (dur, voice, divisions) => {
+            const note = doc.createElement('note');
+            const rest = doc.createElement('rest');
+            const duration = doc.createElement('duration');
+            duration.textContent = String(Math.max(1, Math.round(Number(dur || 1))));
+            const v = doc.createElement('voice');
+            v.textContent = String(voice || '1');
+            note.appendChild(rest);
+            note.appendChild(duration);
+            note.appendChild(v);
+            const t = durationTypeFromDivisions(dur, divisions);
+            if (t) {
+              const type = doc.createElement('type');
+              type.textContent = t;
+              note.appendChild(type);
+            }
+            return note;
+          };
+          const parseMeasureVoiceEvents = (measureEl) => {
+            const eventsByVoice = new Map();
+            let streamPos = 0;
+            const voiceStarts = new Map();
+            let seq = 0;
+            const kids = Array.from(measureEl.childNodes || []).filter((n) => n && n.nodeType === 1);
+            for (let i = 0; i < kids.length; i++) {
+              const el = kids[i];
+              const ln = localNameOf(el);
+              if (ln === 'backup' || ln === 'forward') {
+                const d = Number((el.getElementsByTagNameNS('*', 'duration')[0]?.textContent || '').trim());
+                if (Number.isFinite(d) && d > 0) {
+                  streamPos += (ln === 'backup' ? -d : d);
+                  if (streamPos < 0) streamPos = 0;
+                }
+                continue;
+              }
+              if (ln !== 'note') continue;
+              const voice = getVoice(el);
+              const hasChord = el.getElementsByTagNameNS('*', 'chord').length > 0;
+              const hasRest = el.getElementsByTagNameNS('*', 'rest').length > 0;
+              const dur = Number((el.getElementsByTagNameNS('*', 'duration')[0]?.textContent || '').trim());
+              if (!(Number.isFinite(dur) && dur > 0)) continue;
+              const start = hasChord ? Number(voiceStarts.get(voice) ?? streamPos) : streamPos;
+              const end = start + dur;
+              if (!hasChord) {
+                voiceStarts.set(voice, start);
+                streamPos = end;
+              }
+              const arr = eventsByVoice.get(voice) || [];
+              arr.push({ start, end, isRest: hasRest, hasChord, node: el, seq: seq++ });
+              eventsByVoice.set(voice, arr);
+            }
+            return eventsByVoice;
+          };
+          const ensureVoice12InMeasure = (measureEl) => {
+            const kids = Array.from(measureEl.childNodes || []).filter((n) => n && n.nodeType === 1);
+            for (let i = 0; i < kids.length; i++) {
+              const el = kids[i];
+              const ln = localNameOf(el);
+              if (ln === 'backup' || ln === 'forward') {
+                const timingVoices = Array.from(el.getElementsByTagNameNS('*', 'voice'));
+                for (let j = 0; j < timingVoices.length; j++) timingVoices[j].parentNode?.removeChild(timingVoices[j]);
+                continue;
+              }
+              if (ln !== 'note') continue;
+              let vEl = el.getElementsByTagNameNS('*', 'voice')[0] || null;
+              let v = String(vEl?.textContent || '').trim();
+              if (v === '1' || v === '2') continue;
+
+              const stem = String(el.getElementsByTagNameNS('*', 'stem')[0]?.textContent || '').trim().toLowerCase();
+              let target = '1';
+              if (stem === 'down') target = '2';
+              else if (stem === 'up') target = '1';
+              else {
+                const restEl = el.getElementsByTagNameNS('*', 'rest')[0] || null;
+                target = restEl ? '2' : '1';
+              }
+              if (!vEl) {
+                vEl = doc.createElement('voice');
+                const durEl = el.getElementsByTagNameNS('*', 'duration')[0] || null;
+                if (durEl && durEl.parentNode === el) el.insertBefore(vEl, durEl.nextSibling);
+                else el.appendChild(vEl);
+              }
+              vEl.textContent = target;
+            }
+          };
+          const addForwardBeforeNode = (measureEl, node, delta) => {
+            const d = Math.max(0, Math.round(Number(delta || 0)));
+            if (!(node && d > 0)) return;
+            let prev = node.previousSibling;
+            while (prev && prev.nodeType !== 1) prev = prev.previousSibling;
+            if (prev && localNameOf(prev) === 'forward') {
+              const dEl = prev.getElementsByTagNameNS('*', 'duration')[0] || null;
+              const oldDur = Number((dEl?.textContent || '').trim());
+              if (dEl && Number.isFinite(oldDur) && oldDur > 0) dEl.textContent = String(Math.round(oldDur + d));
+              else {
+                const nd = doc.createElement('duration');
+                nd.textContent = String(d);
+                if (dEl) dEl.parentNode?.replaceChild(nd, dEl);
+                else prev.appendChild(nd);
+              }
+              return;
+            }
+            measureEl.insertBefore(createForwardEl(d), node);
+          };
+          const nudgeTargetVoiceForAnchors = (measureEl, anchors, targetEvents, measureDur) => {
+            const source = Array.isArray(targetEvents) ? targetEvents : [];
+            if (!anchors.length || !source.length) return false;
+            let changed = false;
+            const byOrder = [...source].sort((a, b) => (Number(a.start || 0) - Number(b.start || 0)) || (Number(a.seq || 0) - Number(b.seq || 0)));
+            for (let i = 0; i < anchors.length; i++) {
+              const s = Number(anchors[i].start || 0);
+              const e = Number(anchors[i].end || 0);
+              const delta = e - s;
+              if (!(delta > 0)) continue;
+              const hit = byOrder.find((ev) => !ev.isRest && !ev.hasChord && Math.abs(Number(ev.start || 0) - s) < 0.0001);
+              if (!hit || !hit.node) continue;
+              if (Number(hit.end || 0) + delta > measureDur + 0.0001) continue;
+              addForwardBeforeNode(measureEl, hit.node, delta);
+              changed = true;
+            }
+            return changed;
+          };
+
+          const partEls = Array.from(doc.getElementsByTagNameNS('*', 'part'));
+          for (let pi = 0; pi < partEls.length; pi++) {
+            const partEl = partEls[pi];
+            let divisions = 1;
+            let beats = 4;
+            let beatType = 4;
+            const measures = Array.from(partEl.getElementsByTagNameNS('*', 'measure'));
+            for (let mi = 0; mi < measures.length; mi++) {
+              const measure = measures[mi];
+              const children = Array.from(measure.childNodes || []).filter((n) => n && n.nodeType === 1);
+              const attrs = children.filter((n) => localNameOf(n) === 'attributes');
+              for (let ai = 0; ai < attrs.length; ai++) {
+                const d = Number((attrs[ai].getElementsByTagNameNS('*', 'divisions')[0]?.textContent || '').trim());
+                if (Number.isFinite(d) && d > 0) divisions = d;
+                const timeEl = attrs[ai].getElementsByTagNameNS('*', 'time')[0];
+                if (timeEl) {
+                  const b = Number((timeEl.getElementsByTagNameNS('*', 'beats')[0]?.textContent || '').trim());
+                  const bt = Number((timeEl.getElementsByTagNameNS('*', 'beat-type')[0]?.textContent || '').trim());
+                  if (Number.isFinite(b) && b > 0) beats = b;
+                  if (Number.isFinite(bt) && bt > 0) beatType = bt;
+                }
+              }
+              ensureVoice12InMeasure(measure);
+              const measureDur = Math.max(1, Math.round(divisions * beats * (4 / beatType)));
+              let eventsByVoice = parseMeasureVoiceEvents(measure);
+              let v1 = eventsByVoice.get('1') || [];
+              let v2 = eventsByVoice.get('2') || [];
+              if (!(v1.length && v2.length)) continue;
+
+              const v1RestsRaw = mergeIntervals(v1.filter((e) => e.isRest).map((e) => ({ start: e.start, end: e.end })));
+              const v2RestsRaw = mergeIntervals(v2.filter((e) => e.isRest).map((e) => ({ start: e.start, end: e.end })));
+              const nudgedA = nudgeTargetVoiceForAnchors(measure, v1RestsRaw, v2, measureDur);
+              const nudgedB = nudgeTargetVoiceForAnchors(measure, v2RestsRaw, v1, measureDur);
+              if (nudgedA || nudgedB) {
+                eventsByVoice = parseMeasureVoiceEvents(measure);
+                v1 = eventsByVoice.get('1') || [];
+                v2 = eventsByVoice.get('2') || [];
+              }
+              if (!(v1.length && v2.length)) continue;
+
+              const clampIntervals = (arr) => mergeIntervals((arr || [])
+                .map((x) => ({
+                  start: Math.max(0, Math.min(measureDur, Number(x.start || 0))),
+                  end: Math.max(0, Math.min(measureDur, Number(x.end || 0)))
+                }))
+                .filter((x) => x.end > x.start));
+              const complementIntervals = (coverage) => {
+                const out = [];
+                let cursor = 0;
+                for (let i = 0; i < coverage.length; i++) {
+                  const s = Number(coverage[i].start || 0);
+                  const e = Number(coverage[i].end || 0);
+                  if (s > cursor) out.push({ start: cursor, end: s });
+                  cursor = Math.max(cursor, e);
+                }
+                if (cursor < measureDur) out.push({ start: cursor, end: measureDur });
+                return out.filter((x) => x.end > x.start);
+              };
+
+              const v1Coverage = clampIntervals(v1.map((e) => ({ start: e.start, end: e.end })));
+              const v2Coverage = clampIntervals(v2.map((e) => ({ start: e.start, end: e.end })));
+              const v1Rests = clampIntervals(v1.filter((e) => e.isRest).map((e) => ({ start: e.start, end: e.end })));
+              const v2Rests = clampIntervals(v2.filter((e) => e.isRest).map((e) => ({ start: e.start, end: e.end })));
+              const missingV1 = complementIntervals(v1Coverage);
+              const missingV2 = complementIntervals(v2Coverage);
+              const mirrorToV2 = [];
+              const mirrorToV1 = [];
+              for (let i = 0; i < v1Rests.length; i++) {
+                const r = v1Rests[i];
+                const hasOverlap = v2Coverage.some((c) => overlaps(r.start, r.end, c.start, c.end));
+                if (!hasOverlap) mirrorToV2.push(r);
+              }
+              for (let i = 0; i < v2Rests.length; i++) {
+                const r = v2Rests[i];
+                const hasOverlap = v1Coverage.some((c) => overlaps(r.start, r.end, c.start, c.end));
+                if (!hasOverlap) mirrorToV1.push(r);
+              }
+              const injectV1 = mergeIntervals([...missingV1, ...mirrorToV1]);
+              const injectV2 = mergeIntervals([...missingV2, ...mirrorToV2]);
+              if (!injectV1.length && !injectV2.length) continue;
+
+              const appendBeforeBarline = (nodes) => {
+                if (!nodes.length) return;
+                const firstBarline = Array.from(measure.childNodes || [])
+                  .find((n) => n && n.nodeType === 1 && localNameOf(n) === 'barline') || null;
+                for (let i = 0; i < nodes.length; i++) {
+                  if (firstBarline) measure.insertBefore(nodes[i], firstBarline);
+                  else measure.appendChild(nodes[i]);
+                }
+              };
+              const buildVoiceRestSegment = (voiceId, intervals) => {
+                const out = [];
+                if (!intervals.length) return out;
+                out.push(createBackupEl(measureDur));
+                let cursor = 0;
+                const sorted = intervals
+                  .map((x) => ({ start: Number(x.start || 0), end: Number(x.end || 0) }))
+                  .filter((x) => x.end > x.start)
+                  .sort((a, b) => a.start - b.start || a.end - b.end);
+                for (let i = 0; i < sorted.length; i++) {
+                  const s = Math.max(0, Math.min(measureDur, sorted[i].start));
+                  const e = Math.max(0, Math.min(measureDur, sorted[i].end));
+                  if (!(e > s)) continue;
+                  if (s > cursor) out.push(createForwardEl(s - cursor));
+                  out.push(createRestNoteEl(e - s, voiceId, divisions));
+                  cursor = e;
+                }
+                if (cursor < measureDur) out.push(createForwardEl(measureDur - cursor));
+                return out;
+              };
+              appendBeforeBarline(buildVoiceRestSegment('1', injectV1));
+              appendBeforeBarline(buildVoiceRestSegment('2', injectV2));
+            }
+          }
+          return new XMLSerializer().serializeToString(doc);
+        } catch {
+          return raw;
+        }
+      }
+
+      function stripWrongSignsAndPerformance(xmlText) {
+        const raw = String(xmlText || '');
+        if (!raw.trim()) return raw;
+        try {
+          const doc = new DOMParser().parseFromString(raw, 'application/xml');
+          if (doc.getElementsByTagName('parsererror').length) return raw;
+          let removed = 0;
+          const removeAll = (tag) => {
+            const arr = Array.from(doc.getElementsByTagNameNS('*', tag));
+            for (let i = 0; i < arr.length; i++) {
+              arr[i].parentNode?.removeChild(arr[i]);
+              removed++;
+            }
+          };
+
+          // Performance/direction layer
+          removeAll('direction');
+          removeAll('sound');
+
+          // Frequent wrongly assumed expression symbols
+          removeAll('dynamics');
+          removeAll('words');
+          removeAll('wedge');
+          removeAll('dashes');
+          removeAll('pedal');
+          removeAll('metronome');
+          removeAll('rehearsal');
+          removeAll('segno');
+          removeAll('coda');
+          removeAll('fermata');
+          removeAll('arpeggiate');
+
+          // Note-level mark clutter
+          const notations = Array.from(doc.getElementsByTagNameNS('*', 'notations'));
+          for (let i = 0; i < notations.length; i++) {
+            const n = notations[i];
+            const arts = Array.from(n.getElementsByTagNameNS('*', 'articulations'));
+            const orns = Array.from(n.getElementsByTagNameNS('*', 'ornaments'));
+            const tech = Array.from(n.getElementsByTagNameNS('*', 'technical'));
+            const expr = Array.from(n.getElementsByTagNameNS('*', 'dynamics'));
+            for (let j = 0; j < arts.length; j++) { arts[j].parentNode?.removeChild(arts[j]); removed++; }
+            for (let j = 0; j < orns.length; j++) { orns[j].parentNode?.removeChild(orns[j]); removed++; }
+            for (let j = 0; j < tech.length; j++) { tech[j].parentNode?.removeChild(tech[j]); removed++; }
+            for (let j = 0; j < expr.length; j++) { expr[j].parentNode?.removeChild(expr[j]); removed++; }
+          }
+          appendLog(`Removed sign/performance elements: ${removed}`);
+          return new XMLSerializer().serializeToString(doc);
+        } catch {
+          return raw;
+        }
+      }
+
+      async function reprocessAndRender() {
+        if (!String(originalText || '').trim()) {
+          setMeta('No original XML loaded');
+          return;
+        }
+        setMeta('Processing…');
+        processedText = await processXml(originalText);
+        processedName = originalName.replace(/\.mxl$/i, '').replace(/\.xml$/i, '') + '-processed.musicxml';
+        await renderXmlInto(originalMount, originalText, 'orig');
+        await renderXmlInto(processedMount, processedText, 'proc');
+        btnDownloadOriginal.disabled = !originalText.trim();
+        btnDownloadProcessed.disabled = !processedText.trim();
+        setMeta(`Ready: ${originalName}`);
+      }
+
+      async function loadFromCurrentUrl() {
+        try {
+          const url = String(xmlUrlInput.value || '').trim();
+          if (!url) {
+            setMeta('No source URL');
+            return false;
+          }
+          originalName = (url.split('/').pop() || 'original.musicxml').split('?')[0];
+          originalText = await fetchRawXml(url);
+          appendLog(`Loaded URL: ${url}`);
+          await reprocessAndRender();
+          return true;
+        } catch (e) {
+          setMeta('Load failed');
+          appendLog(`Load failed: ${String(e?.message || e)}`);
+          return false;
+        }
+      }
+
+      btnProcess.addEventListener('click', async () => {
+        try {
+          if (!String(originalText || '').trim()) {
+            setLog('');
+            await loadFromCurrentUrl();
+            return;
+          }
+          await reprocessAndRender();
+        } catch (e) {
+          setMeta('Process failed');
+          appendLog(`Process failed: ${String(e?.message || e)}`);
+        }
+      });
+
+      btnStripSigns.addEventListener('click', async () => {
+        try {
+          if (!String(originalText || '').trim()) {
+            setLog('');
+            const ok = await loadFromCurrentUrl();
+            if (!ok) return;
+          }
+          originalText = stripWrongSignsAndPerformance(originalText);
+          await reprocessAndRender();
+        } catch (e) {
+          setMeta('Strip failed');
+          appendLog(`Strip failed: ${String(e?.message || e)}`);
+        }
+      });
+      btnProcessRests.addEventListener('click', async () => {
+        try {
+          if (!String(originalText || '').trim()) {
+            setLog('');
+            const ok = await loadFromCurrentUrl();
+            if (!ok) return;
+          }
+          setMeta('Processing rests…');
+          processedText = processRestsOnly(originalText);
+          processedName = originalName.replace(/\.mxl$/i, '').replace(/\.xml$/i, '') + '-rests.musicxml';
+          await renderXmlInto(originalMount, originalText, 'orig');
+          await renderXmlInto(processedMount, processedText, 'proc');
+          btnDownloadOriginal.disabled = !originalText.trim();
+          btnDownloadProcessed.disabled = !processedText.trim();
+          setMeta(`Ready: ${originalName} (rests processed)`);
+        } catch (e) {
+          setMeta('Rest process failed');
+          appendLog(`Rest process failed: ${String(e?.message || e)}`);
+        }
+      });
+
+      btnDownloadOriginal.addEventListener('click', () => downloadText(originalName || 'original.musicxml', originalText));
+      btnDownloadProcessed.addEventListener('click', () => downloadText(processedName || 'processed.musicxml', processedText));
+
+      let bootXmlUrl = String(qs.get('xml') || '').trim();
+      let bootXmlText = String(qs.get('xmlText') || '');
+      let bootXmlName = String(qs.get('name') || '').trim();
+
+      if (!bootXmlUrl && !bootXmlText) {
+        try {
+          const raw = String(localStorage.getItem('omr_musicxml_viewer_payload') || '');
+          if (raw) {
+            const payload = JSON.parse(raw);
+            if (!bootXmlUrl) bootXmlUrl = String(payload?.xml || '').trim();
+            if (!bootXmlText) bootXmlText = String(payload?.xmlText || '');
+            if (!bootXmlName) bootXmlName = String(payload?.name || '').trim();
+          }
+        } catch {}
+      }
+      if (!bootXmlUrl && !bootXmlText) {
+        try {
+          const raw = String(sessionStorage.getItem('omr_musicxml_viewer_payload') || '');
+          if (raw) {
+            const payload = JSON.parse(raw);
+            if (!bootXmlUrl) bootXmlUrl = String(payload?.xml || '').trim();
+            if (!bootXmlText) bootXmlText = String(payload?.xmlText || '');
+            if (!bootXmlName) bootXmlName = String(payload?.name || '').trim();
+          }
+        } catch {}
+      }
+      if (!bootXmlUrl && !bootXmlText && document.referrer) {
+        try {
+          const ref = new URL(document.referrer);
+          bootXmlUrl = String(ref.searchParams.get('xml') || '').trim();
+          if (!bootXmlName) bootXmlName = String(ref.searchParams.get('name') || '').trim();
+        } catch {}
+      }
+
+      if (bootXmlUrl) {
+        xmlUrlInput.value = bootXmlUrl;
+        await loadFromCurrentUrl();
+      } else if (bootXmlText.trim()) {
+        originalName = bootXmlName || 'original.musicxml';
+        originalText = bootXmlText;
+        appendLog(`Loaded payload text: ${originalName}`);
+        await reprocessAndRender();
+      } else {
+        setMeta('Ready');
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+[15-Jun-2025 06:51:43 America/Boise] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'wecanrec_text.texts' doesn't exist in /home1/wecanrec/public_html/test.textwhisper.com/tools/move_uploads_to_token_structure.php:31
+Stack trace:
+#0 /home1/wecanrec/public_html/test.textwhisper.com/tools/move_uploads_to_token_structure.php(31): mysqli->prepare('SELECT token FR...')
+#1 /home1/wecanrec/public_html/test.textwhisper.com/tools/move_uploads_to_token_structure.php(54): getTokenForSurrogate(Object(mysqli), '1002')
+#2 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/tools/move_uploads_to_token_structure.php on line 31
+[15-Jun-2025 06:59:03 America/Boise] PHP Fatal error:  Uncaught mysqli_sql_exception: Table 'wecanrec_text.texts' doesn't exist in /home1/wecanrec/public_html/test.textwhisper.com/tools/move_uploads_to_token_structure.php:35
+Stack trace:
+#0 /home1/wecanrec/public_html/test.textwhisper.com/tools/move_uploads_to_token_structure.php(35): mysqli->prepare('SELECT token FR...')
+#1 /home1/wecanrec/public_html/test.textwhisper.com/tools/move_uploads_to_token_structure.php(65): getTokenForSurrogate(Object(mysqli), '1002')
+#2 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/tools/move_uploads_to_token_structure.php on line 35

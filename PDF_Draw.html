@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Draw + Scroll Test v4.1</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #f0f0f0;
+      font-family: sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    #versionBanner {
+      background: #222;
+      color: #fff;
+      padding: 6px 12px;
+      font-size: 14px;
+    }
+
+    #canvasContainer {
+      height: calc(100% - 30px);
+      overflow: auto;
+      background: white;
+      position: relative;
+    }
+
+    #zoomWrapper {
+      display: inline-block;
+      transform-origin: top left;
+    }
+
+    canvas {
+      display: block;
+      background: white;
+      border: 2px dashed #ccc;
+    }
+  </style>
+</head>
+<body>
+  <div id="versionBanner">🧪 Draw + Scroll Test — v4.1 (centered + fast)</div>
+  <div id="canvasContainer">
+    <div id="zoomWrapper">
+      <canvas id="canvas" width="1000" height="1400"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const wrapper = document.getElementById("zoomWrapper");
+    const container = document.getElementById("canvasContainer");
+
+    let scale = 1;
+    let isDrawing = false;
+    let drawingReady = false;
+    let touchTimer = null;
+    let pinchStart = null;
+
+    function getCanvasPos(e) {
+      const r = canvas.getBoundingClientRect();
+      const x = e.touches?.[0]?.clientX || e.clientX;
+      const y = e.touches?.[0]?.clientY || e.clientY;
+      return {
+        x: (x - r.left) * (canvas.width / r.width),
+        y: (y - r.top) * (canvas.height / r.height)
+      };
+    }
+
+    function getDistance(e) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      return Math.hypot(dx, dy);
+    }
+
+    function getCenter(e) {
+      return {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+      };
+    }
+
+    function screenToContent(screen, scroll, scale) {
+      const containerRect = container.getBoundingClientRect();
+      const contentX = (scroll.left + screen.x - containerRect.left) / scale;
+      const contentY = (scroll.top + screen.y - containerRect.top) / scale;
+      return { x: contentX, y: contentY };
+    }
+
+    function setZoom(newScale, screenCenter) {
+      newScale = Math.max(0.5, Math.min(newScale, 4));
+      const oldScale = scale;
+      scale = newScale;
+
+      const scroll = {
+        left: container.scrollLeft,
+        top: container.scrollTop
+      };
+
+      const contentCenter = screenToContent(screenCenter, scroll, oldScale);
+
+      wrapper.style.transform = `scale(${scale})`;
+
+      const dx = contentCenter.x * scale - screenCenter.x + container.getBoundingClientRect().left;
+      const dy = contentCenter.y * scale - screenCenter.y + container.getBoundingClientRect().top;
+
+      container.scrollLeft = dx;
+      container.scrollTop = dy;
+    }
+
+    canvas.addEventListener("touchstart", e => {
+      if (e.touches.length === 1) {
+        drawingReady = false;
+        touchTimer = setTimeout(() => { touchTimer = null; }, 150);
+        const p = getCanvasPos(e);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+      }
+
+      if (e.touches.length === 2) {
+        pinchStart = {
+          dist: getDistance(e),
+          center: getCenter(e)
+        };
+      }
+    });
+
+    canvas.addEventListener("touchmove", e => {
+      if (e.touches.length === 1) {
+        if (touchTimer) {
+          clearTimeout(touchTimer);
+          touchTimer = null;
+          drawingReady = true;
+          isDrawing = true;
+        }
+
+        if (drawingReady && isDrawing) {
+          const p = getCanvasPos(e);
+          ctx.lineTo(p.x, p.y);
+          ctx.strokeStyle = "red";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          e.preventDefault();
+        }
+      }
+
+      if (e.touches.length === 2 && pinchStart) {
+        const dist = getDistance(e);
+        const delta = Math.abs(dist - pinchStart.dist);
+        if (delta > 5) {
+          const factor = dist / pinchStart.dist;
+          setZoom(scale * factor, getCenter(e));
+          pinchStart.dist = dist;
+          e.preventDefault();
+        }
+      }
+    }, { passive: false });
+
+    canvas.addEventListener("touchend", () => {
+      isDrawing = false;
+      drawingReady = false;
+      pinchStart = null;
+      if (touchTimer) {
+        clearTimeout(touchTimer);
+        touchTimer = null;
+      }
+    });
+
+    canvas.addEventListener("mousedown", e => {
+      isDrawing = true;
+      const p = getCanvasPos(e);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+    });
+
+    canvas.addEventListener("mousemove", e => {
+      if (isDrawing) {
+        const p = getCanvasPos(e);
+        ctx.lineTo(p.x, p.y);
+        ctx.strokeStyle = "blue";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    });
+
+    canvas.addEventListener("mouseup", () => isDrawing = false);
+    canvas.addEventListener("mouseleave", () => isDrawing = false);
+
+    container.addEventListener("wheel", e => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+        setZoom(scale * zoomFactor, { x: e.clientX, y: e.clientY });
+      }
+    }, { passive: false });
+
+    ["gesturestart", "gesturechange", "gestureend"].forEach(evt =>
+      window.addEventListener(evt, e => e.preventDefault(), { passive: false })
+    );
+  </script>
+</body>
+</html>

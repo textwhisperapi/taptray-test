@@ -1,0 +1,100 @@
+// install-manager.ts
+type BIPE = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+};
+
+let deferredPrompt: BIPE | null = null;
+let installed = false;
+
+const isIOS = () =>
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  // iPadOS 13+ as Mac: touch support & Safari
+  (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1);
+
+const isSafari = () => /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+const inStandalone = () =>
+  window.matchMedia('(display-mode: standalone)').matches ||
+  // iOS Safari
+  (navigator as any).standalone === true;
+
+export function initInstallManager(onStateChange: (state: InstallState) => void) {
+  installed = inStandalone();
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e as BIPE;
+    onStateChange(getInstallState());
+  });
+
+  window.addEventListener('appinstalled', () => {
+    installed = true;
+    deferredPrompt = null;
+    onStateChange(getInstallState());
+  });
+
+  // Some browsers only update display-mode after load
+  window.matchMedia('(display-mode: standalone)').addEventListener?.('change', (ev) => {
+    installed = ev.matches;
+    onStateChange(getInstallState());
+  });
+
+  onStateChange(getInstallState());
+}
+
+export type InstallState = {
+  canPrompt: boolean;     // we captured beforeinstallprompt
+  installed: boolean;
+  needsHelp: boolean;     // show instructions instead of prompt()
+  label: string;          // menu item label
+  disabled: boolean;      // whether to disable the menu item
+};
+
+export function getInstallState(): InstallState {
+  const canPrompt = !!deferredPrompt;
+  const needsHelp = !canPrompt && !installed;
+  const label = installed ? 'Installed' : 'Install app';
+  const disabled = installed;
+  return { canPrompt, installed, needsHelp, label, disabled };
+}
+
+export async function triggerInstall(onOutcome?: (outcome: 'accepted' | 'dismissed' | 'help' | 'unavailable') => void) {
+  if (installed) {
+    onOutcome?.('unavailable');
+    return;
+  }
+
+  if (deferredPrompt) {
+    const p = deferredPrompt;
+    deferredPrompt = null; // prompt can only be used once
+    await p.prompt();
+    const { outcome } = await p.userChoice;
+    onOutcome?.(outcome);
+    return;
+  }
+
+  // Fallback: show platform-specific instructions
+  showInstallHelp();
+  onOutcome?.('help');
+}
+
+function showInstallHelp() {
+  // Replace this with your app’s modal/toast system
+  const lines: string[] = [];
+
+  if (isIOS() && isSafari()) {
+    lines.push('On iPhone/iPad (Safari):');
+    lines.push('1) Tap the Share icon.');
+    lines.push('2) Choose “Add to Home Screen”.');
+  } else if (isSafari()) {
+    lines.push('On macOS Safari:');
+    lines.push('1) Open the Share menu.');
+    lines.push('2) Choose “Add to Dock”.');
+  } else {
+    lines.push('In your browser menu, look for:');
+    lines.push('• “Install app” or “Add to Home screen”.');
+  }
+
+  alert(lines.join('\n')); // swap with a nicer UI in your codebase
+}

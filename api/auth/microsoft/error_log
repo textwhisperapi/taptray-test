@@ -1,0 +1,24 @@
+[12-Aug-2025 05:50:00 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/api/auth/microsoft/oauth2callback.php:2
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/api/auth/microsoft/oauth2callback.php on line 2
+[12-Aug-2025 05:51:01 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/api/auth/microsoft/oauth2callback.php:2
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/api/auth/microsoft/oauth2callback.php on line 2
+[12-Aug-2025 05:51:36 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/api/auth/microsoft/oauth2callback.php:2
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/api/auth/microsoft/oauth2callback.php on line 2
+[12-Aug-2025 09:35:00 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/api/auth/microsoft/oauth2callback.php:2
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/api/auth/microsoft/oauth2callback.php on line 2
+[12-Aug-2025 09:35:06 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/api/auth/microsoft/oauth2callback.php:2
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/api/auth/microsoft/oauth2callback.php on line 2
+[12-Aug-2025 10:19:24 America/Boise] PHP Fatal error:  Uncaught Error: Call to undefined function sec_session_start() in /home1/wecanrec/public_html/test.textwhisper.com/api/auth/microsoft/oauth2callback.php:2
+Stack trace:
+#0 {main}
+  thrown in /home1/wecanrec/public_html/test.textwhisper.com/api/auth/microsoft/oauth2callback.php on line 2

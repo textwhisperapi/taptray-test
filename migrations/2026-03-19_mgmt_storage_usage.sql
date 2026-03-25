@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS mgmt_storage_usage (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  member_id INT NOT NULL,
+  username VARCHAR(255) NOT NULL,
+  source VARCHAR(32) NOT NULL DEFAULT 'cloudflare',
+  file_count INT NOT NULL DEFAULT 0,
+  bytes_used BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  gb_used DECIMAL(12,3) NOT NULL DEFAULT 0.000,
+  by_type_json LONGTEXT NULL,
+  orphan_file_count INT NOT NULL DEFAULT 0,
+  orphan_bytes_used BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  orphan_gb_used DECIMAL(12,3) NOT NULL DEFAULT 0.000,
+  orphan_detail_json LONGTEXT NULL,
+  scanned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uniq_mgmt_storage_usage_member_source (member_id, source),
+  KEY idx_mgmt_storage_usage_username (username),
+  KEY idx_mgmt_storage_usage_scanned_at (scanned_at),
+  KEY idx_mgmt_storage_usage_file_count (file_count),
+  KEY idx_mgmt_storage_usage_bytes_used (bytes_used)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

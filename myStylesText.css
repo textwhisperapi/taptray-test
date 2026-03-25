@@ -1,0 +1,588 @@
+/* ============================================================
+   📝 TextWhisper — Text Areas + Highlights + Comments + Drawings
+   Clean, consolidated stylesheet
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   Layout: Editable + Read-only mirror
+   ------------------------------------------------------------ */
+.textareas-container {
+  display: flex;
+  flex-grow: 1;
+  min-height: 0;
+  gap: 6px;
+  width: 98%;
+  max-width: 98%;
+  padding-bottom: 6px;
+  box-sizing: border-box;
+  transition: margin-left 0.3s ease-in-out;
+  position: relative;
+}
+
+.text-pane-resizer {
+  display: none;
+  width: 8px;
+  flex: 0 0 8px;
+  cursor: col-resize;
+  border-radius: 6px;
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0.10),
+    rgba(0, 0, 0, 0.22),
+    rgba(0, 0, 0, 0.10)
+  );
+}
+
+body.is-resizing .text-pane-resizer {
+  background: linear-gradient(
+    to right,
+    rgba(30, 111, 204, 0.30),
+    rgba(30, 111, 204, 0.50),
+    rgba(30, 111, 204, 0.30)
+  );
+}
+
+@media (max-width: 899px) {
+  .text-pane-resizer {
+    display: none !important;
+  }
+}
+
+/* Editable + Mirror Areas */
+#myTextarea,
+#myTextarea2 {
+  flex-grow: 1;
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+  padding: 6px 10px 12px 10px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  resize: none;
+  line-height: 1.6;
+  border: 1px solid #ced4da;
+  font-family: system-ui, sans-serif;
+  font-size: 16px;
+}
+
+/* Read-only mirror */
+#myTextarea2 {
+  background: #f8f9fa;
+  color: #6c757d;
+}
+
+/* Editable area */
+#myTextarea {
+  background: #fff;
+  color: #000;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Hide mirror, expand editable in edit mode */
+body.edit-mode #myTextarea2 { display: none; }
+body.edit-mode #myTextarea {
+  width: 90% !important;
+  flex-grow: 1;
+}
+
+/* Two-column layout on wider screens */
+@media (min-width: 1200px) {
+  #myTextarea  { width: 85%; }
+  #myTextarea2 { width: 115%;}
+}
+
+/* ------------------------------------------------------------
+   Passive View Mode (non-edit)
+   ------------------------------------------------------------ */
+body:not(.edit-mode) #myTextarea {
+  user-select: text;
+  pointer-events: auto;
+  caret-color: transparent;
+  cursor: default;
+  -webkit-user-modify: read-only;
+  background: #fdfdfd;
+  color: #111;
+}
+body:not(.edit-mode) #myTextarea:focus {
+  outline: none;
+  caret-color: transparent;
+}
+
+/* ------------------------------------------------------------
+   Text meta footer (owner/creator/updated)
+   ------------------------------------------------------------ */
+.text-meta-footer {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  font-size: 11px;
+  color: #888;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 4px 6px;
+  border-radius: 4px;
+  max-width: 90%;
+  text-align: right;
+  pointer-events: none;
+  line-height: 1.2;
+  z-index: 3;
+}
+
+/* ------------------------------------------------------------
+   Edit Mode
+   ------------------------------------------------------------ */
+body.edit-mode #myTextarea {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-user-modify: read-write !important;
+  overscroll-behavior: contain !important;
+}
+
+body.edit-mode.highlighting #myTextarea,
+body.edit-mode.commenting #myTextarea {
+  touch-action: none !important;
+}
+
+/* When bubble dragging / editing, tweak interaction */
+#myTextarea.bubble-interaction-mode {
+  cursor: default;
+}
+
+/* ------------------------------------------------------------
+   Highlighted Text
+   ------------------------------------------------------------ */
+span.hl {
+  position: relative;
+  background: rgba(255, 255, 0, 0.35);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+span.hl:hover {
+  background: rgba(255, 255, 0, 0.5);
+}
+
+/* Pending save effect */
+span.hl.pending-save {
+  box-shadow: 0 0 0 1px rgba(255, 193, 7, 0.7);
+}
+
+/* ------------------------------------------------------------
+   Comment Bubbles
+   ------------------------------------------------------------ */
+.comment-hint {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  background: rgba(255, 255, 180, 0.96);
+  color: #222;
+  font-size: 0.85em;
+  line-height: 1.3;
+  padding: 0.2em 0.5em;
+  border-radius: 0.3em;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  z-index: 3000;
+  min-height: 24px;
+  cursor: grab;
+  user-select: none;
+  left: 0;
+  top: 0;
+}
+.comment-hint.dragging {
+  cursor: grabbing;
+  opacity: 0.96;
+}
+
+.comment-hint::after {
+  content: "";
+  position: absolute;
+  bottom: -0.4em;
+  left: 0.8em;
+  border: 0.3em solid transparent;
+  border-top-color: rgba(255,255,180,0.96);
+}
+
+/* Editable text in bubble */
+.comment-text {
+  font: inherit;
+  color: #111;
+  background: transparent;
+  outline: none;
+  border: none;
+  padding: 0.05em 0.15em;
+  margin: 0;
+  min-width: 3em;
+  max-width: 18em;
+  cursor: text;
+  user-select: text;
+  line-height: 1.3;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* Drag handle */
+.comment-drag-handle {
+  flex: 0 0 auto;
+  cursor: grab;
+  user-select: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    #777 0 2px,
+    transparent 2px 4px
+  );
+  border-radius: 0.1em;
+  width: 0.9em;
+  height: 0.9em;
+  margin-left: 0.35em;
+}
+.comment-hint.dragging .comment-drag-handle {
+  cursor: grabbing;
+}
+
+/* Bubble being edited */
+.comment-text[contenteditable] {
+  user-select: text !important;
+  pointer-events: auto !important;
+  caret-color: auto !important;
+  cursor: text !important;
+  color: #111 !important;
+}
+
+/* Hide bubbles only (for toggle visibility) */
+#myTextarea.comments-hidden .comment-hint {
+  display: none !important;
+}
+
+
+
+
+/* Base text (you already have) */
+#myTextarea {
+  background: #fff;
+  color: #000;
+  font-family: system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* Internal heading styles */
+#myTextarea .tw-h1 { 
+  font-size: 1.6em;
+  font-weight: 700;
+  margin-top: 0.6em;
+  display: inline-block;
+}
+
+#myTextarea .tw-h2 { 
+  font-size: 1.4em;
+  font-weight: 700;
+  margin-top: 0.5em;
+  display: inline-block;
+}
+
+#myTextarea .tw-h3 { 
+  font-size: 1.2em;
+  font-weight: 700;
+  margin-top: 0.4em;
+  display: inline-block;
+}
+
+/* h4–h6 could be smaller / subtle */
+#myTextarea .tw-h4,
+#myTextarea .tw-h5,
+#myTextarea .tw-h6 {
+  font-weight: 600;
+  display: inline-block;
+  margin-top: 0.3em;
+}
+
+
+/* ------------------------------------------------------------
+   Drawings (anchors + bubbles)
+   ------------------------------------------------------------ */
+
+/* Zero-width anchor in text; acts as positioning container */
+.draw-anchor {
+  position: relative;
+  display: inline-block;
+  width: 0;
+  height: 0;
+  pointer-events: auto; /* bubble inside remains interactable */
+}
+
+/* Drawing bubble near the anchor */
+.drawing-bubble {
+  position: absolute;
+  left: 0;
+  top: -10px;
+  padding: 2px;
+  margin: 0;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  z-index: 3500; /* above text and comments, below global overlays */
+  pointer-events: auto;
+}
+
+/* Image or canvas preview inside the bubble */
+.drawing-bubble canvas,
+.drawing-bubble img {
+  display: block;
+  max-width: 90px;   /* scaled down */
+  max-height: 90px;  /* scaled down */
+  background: transparent;
+}
+
+/* Small drag handle */
+.drawing-drag-handle {
+  width: 24px;
+  height: 24px;
+  background: #ddd;
+  border-radius: 4px;
+  cursor: grab;
+  margin-top: 2px;
+  align-self: flex-end;
+  border: 1px solid rgba(0,0,0,0.25);
+  user-select: none;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drawing-drag-handle {
+  width: 28px;
+  height: 28px;
+  background: #ddd;
+  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,0.25);
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  font-size: 22px;
+  color: #555;
+}
+
+/* Base handle: barely visible */
+.drawing-drag-handle {
+  opacity: 0.10;
+  transition: opacity 0.15s ease;
+}
+
+/* When hovering the bubble OR the handle → visible */
+.drawing-bubble:hover .drawing-drag-handle,
+.drawing-drag-handle:hover {
+  font-size: 36px;    
+  opacity: 1;
+}
+
+
+.drawing-drag-handle::after {
+  content: "✥";   /* clean 4-way grab icon */
+  pointer-events: none;
+}
+
+
+.drawing-drag-handle:hover {
+  cursor: grab;
+  border: 1px solid rgba(0,0,0,0.25);
+}
+
+/* While dragging (optional visual tweak) */
+.drawing-bubble.dragging .drawing-drag-handle {
+  cursor: grabbing;
+}
+
+.drawing-bubble canvas {
+  max-width: none;
+  max-height: none;
+}
+
+
+/* ------------------------------------------------------------
+   Misc helpers
+   ------------------------------------------------------------ */
+
+/* Generic small flash message position could be elsewhere in your app */
+.flash-message {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  z-index: 9999;
+}
+
+
+/* ------------------------------------------------------------
+   Highlighted Text
+   ------------------------------------------------------------ */
+span.hl {
+  position: relative;
+  background: rgba(255, 255, 0, 0.35);
+  border-radius: 3px;
+  cursor: text;               /* behave like normal text while editing */
+  transition: background 0.15s ease;
+}
+
+
+
+
+
+/* =============================================== */
+/* SLIDER STYLES */
+/* =============================================== */
+/* Row container */
+.slider-container {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    max-width: 500px;  /* ← IMPORTANT: give room */
+    padding: 5px 0;
+}
+
+/* Left side (Trim slider) */
+.slider-left {
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+    gap: 10px;
+}
+
+/* Range input */
+.slider-left input[type="range"] {
+    flex-grow: 1;
+    min-width: 130px;
+}
+
+/* Cloak toggle — SAME STYLE AS EDIT TOGGLE */
+.cloak-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 16px;          /* ← Pushes cloak toggle away from slider */
+    min-width: 90px;            /* ← Fix: label no longer clips */
+    justify-content: flex-end; 
+}
+
+/* Toggle switch */
+.cloak-controls .form-check-input {
+    width: 28px;
+    height: 12px;
+    background-color: #ccc;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s ease-in-out;
+}
+.cloak-controls .form-check-input:checked {
+    background-color: #5b956e;
+}
+
+/* Label */
+.cloak-controls .form-check-label {
+    margin: 0;
+    font-size: 14px;
+    color: #000;
+}
+
+
+/* ============================================================
+   CLOAK: Overlays + Handles
+   ============================================================ */
+
+.tw-cloak-overlay {
+  position: absolute;
+  pointer-events: none;   /* allow text to scroll and select */
+  z-index: 5000;
+}
+
+.tw-cloak-mask {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  background: rgba(255, 250, 200, 0.4);
+  backdrop-filter: blur(0px);
+  transition: background 0.1s ease;
+}
+
+.tw-cloak-handle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+  cursor: ns-resize;
+  user-select: none;
+  pointer-events: auto;   /* handles ARE draggable */
+  font-size: 11px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tw-cloak-handle::before {
+  content: "drag";
+}
+
+/* TOP cloak: handle at bottom edge */
+.tw-cloak-top .tw-cloak-handle {
+  bottom: -8px;
+}
+
+/* BOTTOM cloak: handle at top edge */
+.tw-cloak-bottom .tw-cloak-handle {
+  top: -8px;
+}
+
+/* ============================================================
+   CLOAK TOOLBAR (exact console style)
+   ============================================================ */
+
+#twCloakToolbar {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 5001;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.65);
+  color: #fff;
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+#twCloakToolbar label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+}
+
+#twCloakToolbar input[type="range"] {
+  width: 80px;
+  cursor: pointer;
+}
+
+
+

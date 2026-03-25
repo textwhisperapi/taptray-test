@@ -1,0 +1,41 @@
+import {
+  initInstallManager,
+  getInstallState,
+  triggerInstall,
+  type InstallState,
+} from './install-manager';
+
+function byId<T extends HTMLElement = HTMLElement>(id: string) {
+  return document.getElementById(id) as T | null;
+}
+
+export function setupInstallMenu() {
+  const item = byId('installAppMenuItem'); // add this <li> in your PHP
+  if (!item) return;
+
+  const labelEl = item.querySelector('[data-install-label]') || item;
+
+  const apply = (s: InstallState) => {
+    // update label/disabled state
+    if (labelEl) labelEl.textContent = s.installed ? 'Installed' : 'Install App';
+    (item as HTMLLIElement).style.pointerEvents = s.installed ? 'none' : 'auto';
+    (item as HTMLLIElement).classList.toggle('disabled', s.installed);
+  };
+
+  initInstallManager(apply);
+  apply(getInstallState());
+
+  item.addEventListener('click', () => {
+    triggerInstall((o) => {
+      if (o === 'accepted') console.log('App installed');
+      if (o === 'dismissed') console.log('Install dismissed');
+    });
+  });
+}
+
+// Auto‑init after DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', setupInstallMenu);
+} else {
+  setupInstallMenu();
+}

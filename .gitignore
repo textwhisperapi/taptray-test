@@ -1,0 +1,17 @@
+# Secrets
+.env
+
+# Logs and debug output
+*.log
+error.log
+worldline_debug.log
+
+# Runtime/user-generated content
+/uploads/
+/uploads_test/
+
+# Local backups/temp files
+*.bak
+*.swp
+*.tmp
+.DS_Store

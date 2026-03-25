@@ -1,0 +1,41 @@
+RewriteEngine On
+RewriteBase /
+
+# --- lite subdomains -> tw-light front controller ---
+# Works when subdomain uses the same DocumentRoot as main app.
+# Allow optional port suffix in Host header.
+RewriteCond %{HTTP_HOST} ^lite\.(textwhisper\.com|skolaspjall\.is)(:[0-9]+)?$ [NC]
+RewriteRule ^$ /tw-light/index.php [L,QSA]
+
+RewriteCond %{HTTP_HOST} ^lite\.(textwhisper\.com|skolaspjall\.is)(:[0-9]+)?$ [NC]
+RewriteCond %{REQUEST_URI} !^/tw-light/ [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^.*$ /tw-light/index.php [L,QSA]
+
+
+# Force all requests to index.php (except real files/folders)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.+)$ /index.php?user=$1 [L,QSA]
+
+# Redirect root to /default
+#RewriteRule ^$ /default [L,R=301]
+
+
+# Route all other requests to index.php
+RewriteRule ^([a-zA-Z0-9_-]+)(?:/([0-9]+))?$ index.php [L,QSA]
+
+# Allow UTF-8 encoded URLs
+AddDefaultCharset UTF-8
+
+<Files "version.js">
+  Header set Cache-Control "no-cache, no-store, must-revalidate"
+</Files>
+
+<Files "error.log">
+  Require all denied
+</Files>
+
+
+

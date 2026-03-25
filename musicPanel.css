@@ -1,0 +1,935 @@
+#musicTabContent .text-muted {
+  color: #fff !important;
+}
+
+.upload-link {
+  color: #007bff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.upload-link:hover {
+  text-decoration: none;
+}
+
+
+.music-panel {
+  display: none;
+  position: fixed;
+  /*left: 290px !important;*/
+  /*width: calc(100vw - 290px) !important;  */
+  /*bottom: 42px;*/
+  bottom: 2.625em; /* instead of 42px */
+  left: 0;
+  right: 0;
+  max-height: 50vh;
+  background: rgba(60, 60, 60, 0.70);  
+  color: #ddd;
+  /*backdrop-filter: blur(10px);*/
+  /*-webkit-backdrop-filter: blur(10px);*/
+  z-index: 1500;
+  padding: 8px;
+  /*box-shadow: 0 -2px 6px rgba(0,0,0,0.5);*/
+  overflow-y: auto;
+}
+
+.music-panel.visible {
+  display: block;
+}
+
+/* Keep player controls clear of left-edge PDF nav arrows in left-handed mode. */
+body.pdf-left-handed-nav-active .music-panel {
+  padding-left: calc(44px + env(safe-area-inset-left, 0px));
+}
+
+
+
+.musicPanel-audio-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+
+
+
+
+
+
+.musicPanel-title,
+.midi-filename{
+  font-size: 14px;
+  font-weight: 500;
+  color: #ddd;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+.musicPanel-item {
+  /*max-width: 400px;*/
+  max-width: 30em; /* 400 ÷ 16 = 25em */
+  width: 99%;
+  margin: 0 auto 8px 0;
+  background: rgba(40, 40, 40, 0.80);  
+  border-radius: 8px;
+  padding: 6px 12px;
+  margin-bottom: 3px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  transition: background 0.2s;
+  margin-bottom: 0.2rem
+}
+
+
+.musicPanel-item:hover {
+  background: #2a2a2a;
+}
+
+
+
+.small.text-secondary {
+  font-size: 12px;
+  font-weight: 500;
+  color: #ccc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.musicPanel-pinBtn,
+.musicPanel-deleteBtn,
+.toggle-channels-btn {
+  background: none;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  color: #ccc;
+  opacity: 1;
+  transition: opacity 0.2s;
+  margin-left: 2px;
+}
+
+.musicPanel-pinBtn:hover,
+.musicPanel-deleteBtn:hover,
+.toggle-channels-btn:hover {
+  opacity: 1;
+}
+
+.musicPanel-deleteBtn:hover {
+  color: red;
+}
+
+/*@media (min-width: 1200px) {*/
+/*  #musicTabContent.music-panel {*/
+/*    margin-left: 290px;*/
+/*    width: calc(100vw - 290px);*/
+/*  }*/
+/*}*/
+
+
+@media (min-width: 1200px) {
+  .musicPanel-bottomPinned {
+    left: 0;
+    width: 100%;
+  }
+}
+
+
+/*//-----------------*/
+
+.close-btn {
+  background: none;
+  color: #aaa;
+  border: none;
+  font-size: 16px;
+  float: right;
+  cursor: pointer;
+}
+
+.upload-link {
+  color: #4da6ff;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.upload-link:hover {
+  text-decoration: none;
+}
+
+.music-upload-toggle {
+  margin-bottom: 6px;
+  padding: 6px 12px;
+  background: #333;
+  color: #eee;
+  border: 1px solid #555;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.music-upload-toggle:hover {
+  background: #444;
+}
+
+.music-upload-box {
+  margin-top: 10px;
+  background: #222;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #444;
+}
+
+.music-upload-box p {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #aaa;
+}
+
+.music-upload-input {
+  width: 100%;
+  padding: 8px 10px;
+  margin-top: 6px;
+  font-size: 14px;
+  background: #1a1a1a;
+  color: #eee;
+  border: 1px solid #555;
+  border-radius: 4px;
+}
+
+.music-upload-input::placeholder {
+  color: #777;
+}
+
+.music-upload-add-btn {
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: #4da6ff;
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.music-upload-add-btn:hover {
+  background: #3399ff;
+}
+
+@media (max-width: 600px) {
+  .music-upload-box {
+    padding: 10px;
+  }
+
+  .music-upload-input {
+    font-size: 13px;
+  }
+
+  .music-upload-add-btn {
+    width: 100%;
+  }
+}
+
+.musicPanel-title.clickable {
+  cursor: pointer;
+}
+
+#musicTabContent.music-panel {
+  /*background-color: rgba(34, 34, 34, 0.5); */
+  /*backdrop-filter: blur(4px);*/
+}
+
+.music-icon {
+  height: 1em;
+  width: auto;
+  vertical-align: middle;
+  margin-right: 6px;
+  display: inline-block;
+}
+
+
+/*-- soundCloud ---*/
+
+
+.musicPanel-item iframe {
+  width: 100%;
+  max-width: 600px;
+  border-radius: 8px;
+  margin: 10px 0;
+}
+
+.musicPanel-item {
+  display: flex;
+  justify-content: center;
+}
+
+#musicTabContent.drag-over {
+  outline: 2px dashed #337ab7;
+  background: rgba(51,122,183,0.1);
+}
+
+
+/*----- Recording ----*/
+
+/* Record Music toggle button */
+.music-recording {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 6px 12px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid #c33;
+  background: #e74c3c; /* red tone */
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.music-recording:hover { background: #c0392b; }
+.music-recording:active { transform: scale(0.97); }
+
+/* Match style when "Close" */
+.music-recording.close {
+  background: #555;
+  border-color: #333;
+}
+
+/*-------------------*/
+
+.recording-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 420px;
+  max-width: 90%;
+  background: #111;
+  color: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  padding: 16px; /* reduced padding */
+  z-index: 12000;
+}
+.recording-panel.hidden { display: none; }
+
+.recording-header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  margin-bottom: 8px; /* tighter */
+}
+.recording-header button {
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.rec-timer {
+  text-align: center;
+  font-size: 20px;  /* smaller */
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.waveform {
+  height: 28px;  /* slimmer */
+  background: repeating-linear-gradient(
+    to right,
+    #444,
+    #444 2px,
+    transparent 2px,
+    transparent 6px
+  );
+  margin: 0 auto 10px; /* less space */
+  border-radius: 4px;
+}
+
+.record-btn {
+  display: block;
+  margin: 6px auto; /* tighter */
+  width: 60px;      /* slightly smaller */
+  height: 60px;
+  border-radius: 50%;
+  background: #e74c3c;
+  border: none;
+  color: #fff;
+  font-size: 26px;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.2s;
+}
+.record-btn:active { transform: scale(0.95); background: #c0392b; }
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px; /* reduced */
+}
+.confirm-btn {
+  flex: 1;
+  margin-right: 6px;
+  background: #2ecc71;
+  border: none;
+  padding: 6px;   /* smaller */
+  border-radius: 6px;
+  cursor: pointer;
+  color: #fff;
+  font-size: 13px;
+}
+.cancel-btn {
+  flex: 1;
+  margin-left: 6px;
+  background: #e74c3c;
+  border: none;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #fff;
+  font-size: 13px;
+}
+
+/* Limit recording panel height on small screens */
+#recordingPanel {
+  max-height: 75vh;  /* trimmed a bit more */
+  overflow-y: auto;
+}
+
+/* On very small devices, reduce padding/margins further */
+@media (max-height: 700px) {
+  #recordingPanel .recording-body {
+    padding: 6px;
+  }
+  #recordingPanel .rec-timer {
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+  #recordingPanel .waveform {
+    height: 24px;
+    margin: 4px 0 8px;
+  }
+  #recordingPanel .actions button {
+    padding: 5px;
+    font-size: 12px;
+  }
+}
+
+
+/*----DropBox-----------*/
+
+.music-dropbox-btn {
+  display: inline-block;
+  margin-left: 6px;
+  align-items: center;
+  gap: 6px;
+  background: #333;
+  color: #eee;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.music-dropbox-btn:hover {
+  background: #444;
+}
+
+
+
+/*-----------------------*/
+
+.custom-audio-player {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0px;
+  border-radius: 10px;
+  /*background: #1e1e1e;*/
+  color: #eee;
+}
+
+.controls-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 25px;
+}
+
+.player-btn {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: color 0.2s, background 0.2s;
+}
+
+.player-btn.big {
+  width: 52px;
+  height: 52px;
+  font-size: 22px;
+  background: #333;
+  color: #fff;
+}
+
+.player-btn:hover {
+  color: #4af;
+  background: rgba(255,255,255,0.08);
+}
+
+.player-btn.with-number .btn-number {
+  position: absolute;
+  font-size: 10px;
+  font-weight: bold;
+  color: #4af;
+  bottom: 3px;
+  right: 3px;
+  pointer-events: none;
+}
+
+/* 🎵 Progress row scales with environment zoom */
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;             /* 8px → 0.5em */
+}
+
+/* --- Progress bar track --- */
+.progress-bar {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 0.6em;       /* 7px → 0.4375em */
+  background: #444;
+  border-radius: 0.1875em; /* 3px → 0.1875em */
+  cursor: pointer;
+}
+
+/* --- Progress knob --- */
+.progress-bar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 0.75em;          /* 12px → 0.75em */
+  height: 0.75em;
+  border-radius: 50%;
+  background: #4af;
+  cursor: pointer;
+}
+
+/* --- Time labels --- */
+.time-labels {
+  display: flex;
+  gap: 0.375em;           /* 6px → 0.375em */
+  font-size: 0.6875em;    /* 11px → 0.6875em */
+  color: #aaa;
+  font-family: monospace;
+}
+
+/* --- Speed selector --- */
+.speed-select {
+  background: #222;
+  border: 1px solid #555;
+  color: #eee;
+  padding: 0.125em 0.375em; /* 2px 6px → 0.125em 0.375em */
+  border-radius: 0.375em;   /* 6px → 0.375em */
+  font-size: 0.75em;        /* 12px → 0.75em */
+  margin-left: auto;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.speed-select:hover {
+  border-color: #4af;
+}
+
+
+.player-btn i[data-lucide="download"] {
+  width: 18px;
+  height: 18px;
+}
+
+
+/*------- pinn to bottom ------------*/
+
+/* ==============================
+   Floating Music Player (progress inside bar)
+   ============================== */
+
+
+.musicPanel-bottomPinned:hover {
+  background: rgba(20, 20, 20, 0.9);
+}
+
+ Compact layout 
+.musicPanel-bottomPinned .custom-audio-player {
+  width: 100%;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.musicPanel-bottomPinned .controls-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+}
+
+.musicPanel-bottomPinned .player-btn.big {
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+}
+
+
+/* Progress bar inside the pinned wrapper */
+.musicPanel-bottomPinned .progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  gap: 0.5em;               /* 8px → 0.5em */
+  opacity: 1;
+  pointer-events: auto;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.6875em;      /* 11px ÷ 16px */
+}
+
+/* --- Slider track --- */
+.musicPanel-bottomPinned .progress-bar {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 0.8em;  
+  border-radius: 0.3em;  /* 3px → 0.1875em */
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+}
+
+/* --- Slider knob --- */
+.musicPanel-bottomPinned .progress-bar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 0.9em;           /* 10px → 0.625em */
+  height: 0.9em;
+  border-radius: 50%;
+  /*background: #fff;*/
+  background: #4af;
+    /*border: 1px solid rgba(0, 0, 0, 0.4);*/
+  border: none; /* or transparent */
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4) inset;  
+}
+
+/* --- Time labels --- */
+.musicPanel-bottomPinned .time-labels {
+  display: flex;
+  gap: 0.375em;             /* 6px → 0.375em */
+  font-family: monospace;
+  font-size: 0.6875em;      /* 11px ÷ 16px */
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* --- Speed selector --- */
+.musicPanel-bottomPinned .speed-select {
+  background: rgba(255, 255, 255, 0.15);
+  border: 0 solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  padding: 0.125em 0.375em; /* 2px 6px → 0.125em 0.375em */
+  border-radius: 0.25em;    /* 4px → 0.25em */
+  font-size: 0.75em;        /* 12px ÷ 16px */
+}
+
+
+
+
+/* Responsive when sidebar hidden */
+@media (max-width: 1199px) {
+  .musicPanel-bottomPinned {
+    left: 0 ;
+    width: 100% 
+  }
+}
+
+
+
+/* Unpin button for pinned player */
+.musicPanel-unpinBtn {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  z-index: 20000;
+}
+
+.musicPanel-unpinBtn:hover {
+  opacity: 1;
+  color: #4af; /* light accent color on hover */
+}
+
+
+.musicPanel-floating,
+.musicPanel-floating .midi-player-wrapper {
+  overflow: hidden;   /* no scrollbars ever */
+}
+
+
+
+.musicPanel-floating {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 2.625em; /* instead of 42px */
+  max-height: calc(100vh - 60px); /* fits viewport */
+  z-index: 9999;
+  background: rgba(40, 40, 40, 0.8);
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  padding: 8px;
+  cursor: move;
+  overflow: hidden;
+}
+
+
+.musicPanel-bottomPinned {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);  
+  bottom: 2.625em; /* instead of 42px */
+  top: auto;
+  height: 6.6em; 
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  z-index: 10080;
+  padding: 4px 12px;
+  margin: 0;
+  overflow: hidden;
+  transition: background 0.3s ease;
+}
+
+
+
+
+/* Hide delete + download when pinned (either bottom or floating) */
+.musicPanel-bottomPinned .musicPanel-deleteBtn,
+.musicPanel-floating .musicPanel-deleteBtn,
+.musicPanel-bottomPinned .player-btn[title="Download"],
+.musicPanel-floating .player-btn[title="Download"] {
+  display: none !important;
+}
+
+
+
+/* Re-enable controls inside pinned player */
+.musicPanel-floating button,
+.musicPanel-floating input,
+.musicPanel-floating select,
+.musicPanel-bottomPinned button,
+.musicPanel-bottomPinned input,
+.musicPanel-bottomPinned select {
+  pointer-events: auto !important;
+}
+
+
+/* ðŸŽš Speed selector text visibility across themes */
+.speed-select {
+  color: #555;              /* soft neutral gray text */
+  background: transparent;  /* keep same surface */
+  border: 1px solid rgba(120,120,120,0.4);
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
+/* Options in dropdown: readable on any system menu */
+.speed-select option {
+  color: #000;              /* force black in dropdown list */
+  background: #fff;
+}
+
+/* When pinned (translucent background), slightly brighten */
+.musicPanel-floating .speed-select,
+.musicPanel-bottomPinned .speed-select {
+  color: #ccc;              /* lighter gray against transparent surface */
+  border-color: rgba(200,200,200,0.4);
+}
+
+.musicPanel-floating .speed-select option,
+.musicPanel-bottomPinned .speed-select option {
+  color: #000;
+  background: #fff;
+}
+
+
+
+.musicPanel-bottomPinned .musicPlayerBox {
+  width: 100%;
+  max-width: none;
+}
+
+.musicPanel-floating .musicPlayerBox {
+  width: auto;
+  max-width: 30em; /* optional cap for floating window */
+}
+
+
+.musicPanel-defaultChk {
+  margin-right: 2px;               /* reduced gap (was 4px) */
+  cursor: pointer;
+  accent-color: var(--accent-color, #1db954); /* Spotify green */
+  transform: scale(1.1);
+}
+
+.musicPanel-defaultChk:checked::after {
+  /*content: "✓";*/
+  font-size: 10px;
+  position: relative;
+  top: -1px;
+  left: 1px;
+}
+
+
+
+/*----------------------*/
+
+@media (min-width: 1200px) {
+  #musicTabContent.music-panel {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+
+/* ------- member role settings -------- */
+
+
+/* component-only styling */
+.mp-box{
+  padding:6px;
+  border-radius:6px;
+}
+
+.mp-wrap{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+}
+
+.mp-role{
+  padding:4px 9px;
+  border-radius:999px;
+  cursor:pointer;
+  font-size:13px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+
+  /* SAFE fallbacks */
+  background: var(--mp-pill-bg, var(--panel-button-bg, #e6e6e6));
+  color: var(--mp-pill-text, var(--panel-button-text, #000));
+}
+
+.mp-role.active{
+  background: var(--mp-pill-active-bg, var(--panel-accent, #4a90e2));
+  color: var(--mp-pill-active-text, var(--panel-accent-text, #fff));
+}
+
+.mp-role.add{
+  background: transparent;
+  border: 1px dashed var(--panel-border, #999);
+  color: inherit;
+  opacity: 0.7;
+}
+
+.mp-del{
+  opacity:.6;
+  font-size:11px;
+  cursor:pointer;
+}
+
+.mp-input{
+  border:0;
+  border-radius:999px;
+  padding:6px 10px;
+  font-size:13px;
+
+  background: var(--panel-input-bg, #f0f0f0);
+  color: var(--panel-input-text, #000);
+}
+
+
+
+/* ----- music buttons ----------- */
+
+.music-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  font-size: 14px;
+  padding: 6px 12px;
+  margin: 4px;
+
+  background: #333;
+  color: #eee;
+  border: 1px solid #555;
+  border-radius: 6px;
+
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+
+.music-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 14px;
+    padding: 4px 9px;
+    border-radius: 8px;
+}
+
+.music-btn.record {
+  background: #c94a4a;   /* mild red */
+  color: #fff;
+}
+
+
+
+.music-provider-row,
+.music-link-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+
+/* Google Picker must appear above panels/modals */
+.picker-dialog,
+.picker-dialog-bg,
+.goog-inline-block,
+.goog-modalpopup {
+z-index: 3000;
+}

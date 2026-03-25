@@ -1,0 +1,36 @@
+<div style="max-width: 400px; margin: 20px auto; font-family: sans-serif;">
+  <label for="spotifyUrl">🎵 Paste Spotify Link:</label>
+  <input id="spotifyUrl" type="text" placeholder="https://open.spotify.com/track/..." style="width: 100%; padding: 8px; margin-top: 5px;" />
+  <button onclick="renderSpotifyEmbed()" style="margin-top: 10px; padding: 6px 12px;">▶️ Preview</button>
+
+  <div id="spotifyPreview" style="margin-top: 20px;"></div>
+</div>
+
+<script>
+  function renderSpotifyEmbed() {
+    const input = document.getElementById("spotifyUrl").value.trim();
+    const container = document.getElementById("spotifyPreview");
+    container.innerHTML = "";
+
+    const match = input.match(/^https:\/\/open\.spotify\.com\/(track|album|playlist)\/([a-zA-Z0-9]+)/);
+    if (!match) {
+      container.innerHTML = "<p style='color:red;'>❌ Invalid Spotify URL</p>";
+      return;
+    }
+
+    const type = match[1];
+    const id = match[2];
+    const embedUrl = `https://open.spotify.com/embed/${type}/${id}`;
+
+    const iframe = document.createElement("iframe");
+    iframe.src = embedUrl;
+    iframe.width = "100%";
+    iframe.height = "80";
+    iframe.frameBorder = "0";
+    iframe.allow = "autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture";
+    iframe.loading = "lazy";
+    iframe.style.borderRadius = "12px";
+
+    container.appendChild(iframe);
+  }
+</script>

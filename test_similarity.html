@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TW Matching Test</title>
+<style>
+  body { font-family: system-ui; padding: 20px; max-width: 900px; }
+  input, textarea { width: 100%; padding: 6px; margin-bottom: 10px; }
+  pre { background: #f4f4f4; padding: 10px; }
+  button { padding: 8px 14px; }
+</style>
+</head>
+<body>
+
+<h2>TextWhisper Matching Test</h2>
+
+<label>TextWhisper title</label>
+<input id="tw" value="08. Úr útsæ rísa íslands fjöll">
+
+<label>File name</label>
+<input id="file" value="08. Úr útsæ rísa íslands fjöll.pdf">
+
+<button onclick="run()">Compare</button>
+
+<h3>Result</h3>
+<pre id="out"></pre>
+
+<script>
+function normalizeName(str) {
+  return (str || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")                 // remove accents
+    .replace(/\.(pdf|docx?|txt)$/i, "")              // remove ONLY these extensions
+    .replace(/[\p{Emoji_Presentation}\p{Emoji}\p{So}]/gu, "") // remove emoji anywhere
+    .replace(/^[\s#]*/, "")                          // strip leading # / spaces
+    .replace(/^\d+\s*[.\-–]?\s*/, "")                // strip leading numbers
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")               // drop punctuation
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+
+
+
+function ngrams(str, n = 3) {
+  const s = ` ${str} `;
+  const out = new Set();
+  for (let i = 0; i <= s.length - n; i++) out.add(s.slice(i, i + n));
+  return out;
+}
+
+function jaccard(a, b) {
+  let i = 0;
+  for (const x of a) if (b.has(x)) i++;
+  return i / (a.size + b.size - i || 1);
+}
+
+function ngramSimilarity(a, b) {
+  return jaccard(ngrams(a), ngrams(b));
+}
+
+function run() {
+  const rawA = document.getElementById("tw").value;
+  const rawB = document.getElementById("file").value;
+
+  const A = normalizeName(rawA);
+  const B = normalizeName(rawB);
+
+  let mode = "none";
+  let score = 0;
+
+  if (A === B) {
+    mode = "exact";
+    score = 100;
+  } else if (A.length >= 6 && (A.includes(B) || B.includes(A))) {
+    mode = "contains";
+    score = 100;
+  } else {
+    score = Math.round(ngramSimilarity(A, B) * 100);
+    if (score >= 85) mode = "ngram-high";
+    else if (score >= 65) mode = "ngram-medium";
+  }
+
+  document.getElementById("out").textContent =
+`TW normalized:   "${A}"
+File normalized: "${B}"
+
+mode:  ${mode}
+score: ${score}%`;
+}
+</script>
+
+</body>
+</html>

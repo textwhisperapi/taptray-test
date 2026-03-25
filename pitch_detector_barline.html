@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pitch Detector - Score Barline</title>
+  <style>
+    :root {
+      --bg: #f4f8ff;
+      --panel: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --line: #cbd5e1;
+      --ok: #16a34a;
+      --warn: #d97706;
+      --bad: #dc2626;
+      --accent: #0ea5e9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 20% 10%, #dbeafe, var(--bg) 45%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .panel {
+      max-width: 860px;
+      margin: 0 auto;
+      background: var(--panel);
+      border: 1px solid #dbe3f0;
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      background: #0f172a;
+      color: #fff;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button.secondary { background: #334155; }
+    select {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 7px 10px;
+      background: #fff;
+      color: #0f172a;
+      font-weight: 600;
+    }
+    .meta { color: var(--muted); font-size: 14px; }
+    .cards {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 10px;
+    }
+    .card {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 10px;
+      background: #f8fbff;
+    }
+    .k { color: #475569; font-size: 13px; }
+    .v { font-size: 24px; font-weight: 700; }
+    @media (max-width: 640px) {
+      body { padding: 10px; }
+      .panel { padding: 10px; border-radius: 10px; }
+      .cards {
+        margin-top: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+      }
+      .card { padding: 7px; border-radius: 8px; }
+      .k { font-size: 11px; line-height: 1.2; }
+      .v { font-size: 18px; line-height: 1.1; }
+    }
+
+    .barWrap {
+      margin-top: 16px;
+      border: 1px solid #dbe3f0;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fcfdff;
+    }
+    .barTitle { font-size: 14px; color: #334155; margin-bottom: 8px; }
+    .bar {
+      position: relative;
+      height: 18px;
+      border-radius: 99px;
+      border: 1px solid var(--line);
+      background: linear-gradient(90deg, #fee2e2 0%, #ffedd5 25%, #dcfce7 50%, #ffedd5 75%, #fee2e2 100%);
+      overflow: hidden;
+    }
+    .barCenter {
+      position: absolute;
+      top: -4px;
+      bottom: -4px;
+      left: 50%;
+      width: 2px;
+      background: #0f172a;
+      opacity: 0.75;
+      transform: translateX(-1px);
+    }
+    .barNeedle {
+      position: absolute;
+      top: -3px;
+      height: 24px;
+      width: 4px;
+      border-radius: 2px;
+      background: var(--accent);
+      transform: translateX(-2px);
+      left: 50%;
+    }
+    .barScale {
+      margin-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .staffWrap {
+      margin-top: 16px;
+      border: 1px solid #dbe3f0;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+    }
+    .staffControls {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      justify-content: flex-start;
+    }
+    .staffControls button {
+      padding: 7px 10px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+    .staffSettings {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    #staff {
+      width: 100%;
+      height: 220px;
+      display: block;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #ffffff;
+    }
+  </style>
+</head>
+<body>
+  <main class="panel">
+    <div class="row">
+      <div class="meta" id="status">Idle</div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="k">Detected note</div>
+        <div class="v" id="noteLabel">-</div>
+      </div>
+      <div class="card">
+        <div class="k">Frequency (Hz)</div>
+        <div class="v" id="hzLabel">-</div>
+      </div>
+      <div class="card">
+        <div class="k">Cents from note</div>
+        <div class="v" id="centLabel">-</div>
+      </div>
+      <div class="card">
+        <div class="k">Pitch score</div>
+        <div class="v" id="scoreLabel">-</div>
+      </div>
+    </div>
+
+    <section class="barWrap">
+      <div class="barTitle">Tuning score barline (center = in tune)</div>
+      <div class="bar">
+        <div class="barCenter"></div>
+        <div class="barNeedle" id="needle"></div>
+      </div>
+      <div class="barScale">
+        <span>-50 cents</span>
+        <span>0</span>
+        <span>+50 cents</span>
+      </div>
+    </section>
+
+    <section class="staffWrap">
+      <div class="barTitle">Score barline view (detected pitch on staff)</div>
+      <div class="staffControls">
+        <button id="startBtnGrid" type="button">Start</button>
+        <button id="stopBtnGrid" type="button" class="secondary">Stop</button>
+      </div>
+      <div class="staffSettings">
+        <label for="inputMode" class="meta">Mode</label>
+        <select id="inputMode">
+          <option value="voice" selected>Voice</option>
+          <option value="piano">Piano</option>
+        </select>
+        <label for="displayKey" class="meta">Display key</label>
+        <select id="displayKey"></select>
+      </div>
+      <svg id="staff" viewBox="0 0 900 220" preserveAspectRatio="none" aria-label="staff"></svg>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const startBtnGrid = document.getElementById("startBtnGrid");
+      const stopBtnGrid = document.getElementById("stopBtnGrid");
+      const inputModeEl = document.getElementById("inputMode");
+      const displayKeyEl = document.getElementById("displayKey");
+      const statusEl = document.getElementById("status");
+      const noteLabel = document.getElementById("noteLabel");
+      const hzLabel = document.getElementById("hzLabel");
+      const centLabel = document.getElementById("centLabel");
+      const scoreLabel = document.getElementById("scoreLabel");
+      const needle = document.getElementById("needle");
+      const staff = document.getElementById("staff");
+
+      const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+      const DIATONIC_BY_SEMITONE = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6]; // C..B letter steps
+      const REF_STEP_E4 = (4 * 7) + 2; // E4 (treble bottom line)
+      let audioCtx = null;
+      let analyser = null;
+      let source = null;
+      let stream = null;
+      let raf = 0;
+      let smoothingFreq = null;
+      let toneTimeline = [];
+      let timelineStartMs = 0;
+      let lastPlottedMidi = null;
+      let stableMidi = null;
+      let stableCount = 0;
+      let pendingChangeMidi = null;
+      let pendingChangeCount = 0;
+      let lastPlottedAtMs = 0;
+      let lastTraceAtMs = 0;
+      let pitchTrace = [];
+      let onsetTimesMs = [];
+      let estimatedBeatSec = 1.0;
+      let detectMode = "voice";
+      let displayFloorMidi = 43; // default G2
+      const TIMELINE_LEFT_X = 210;
+      const TIMELINE_RIGHT_X = 850;
+      const TIMELINE_PX_PER_SEC = 122;
+      const SYSTEM_ROW_GAP = 58;
+      const SILENCE_RMS = 0.011;
+      const TRACE_SAMPLE_MS = 12;
+      const TRACE_MAX_JUMP_PER_SAMPLE = 6.0;
+      const TRACE_SMOOTH_KEEP = 0.18;
+      const TRACE_SNAP_STRENGTH = 0.0;
+      const TRACE_ANOMALY_SEMITONES = 3.8;
+      const TRACE_MIN_WIDTH = 0.85;
+      const TRACE_MAX_WIDTH = 2.6;
+      const TRACE_RMS_MIN = 0.01;
+      const TRACE_RMS_MAX = 0.08;
+      const MODE_PRESETS = {
+        voice: {
+          smoothingKeep: 0.8,
+          pitchStableFrames: 4,
+          semitoneChangeMin: 1,
+          changeConfirmFrames: 5,
+          minPlotIntervalMs: 320,
+          sameNoteRetriggerMs: 420,
+          minNoteGapMs: 260,
+          minNoteGapPx: 14,
+          clashReplaceMidiDelta: 2
+        },
+        piano: {
+          smoothingKeep: 0.55,
+          pitchStableFrames: 2,
+          semitoneChangeMin: 1,
+          changeConfirmFrames: 2,
+          minPlotIntervalMs: 110,
+          sameNoteRetriggerMs: 130,
+          minNoteGapMs: 90,
+          minNoteGapPx: 8,
+          clashReplaceMidiDelta: 1
+        }
+      };
+      let wasVoiced = false;
+
+      function getModePreset() {
+        return MODE_PRESETS[detectMode] || MODE_PRESETS.voice;
+      }
+
+      function setStatus(text) {
+        statusEl.textContent = text;
+      }
+
+      function hzToMidi(freq) {
+        return 69 + 12 * Math.log2(freq / 440);
+      }
+
+      function midiToHz(midi) {
+        return 440 * Math.pow(2, (midi - 69) / 12);
+      }
+
+      function midiToName(midi) {
+        const rounded = Math.round(midi);
+        const octave = Math.floor(rounded / 12) - 1;
+        return `${NOTE_NAMES[((rounded % 12) + 12) % 12]}${octave}`;
+      }
+
+      function midiToKeyName(midi) {
+        const rounded = Math.round(Number(midi || 69));
+        return NOTE_NAMES[((rounded % 12) + 12) % 12];
+      }
+
+      function midiToDiatonicStep(midiVal) {
+        const rounded = Math.round(Number(midiVal || 69));
+        const semitone = ((rounded % 12) + 12) % 12;
+        const octave = Math.floor(rounded / 12) - 1;
+        return (octave * 7) + DIATONIC_BY_SEMITONE[semitone];
+      }
+
+      function buildDisplayKeyOptions() {
+        if (!displayKeyEl) return;
+        const out = [];
+        for (let midi = 36; midi <= 59; midi++) { // C2..B3
+          out.push(`<option value="${midi}">${midiToName(midi)}</option>`);
+        }
+        displayKeyEl.innerHTML = out.join("");
+        displayKeyEl.value = String(displayFloorMidi);
+      }
+
+      function detectPitchACF(buffer, sampleRate) {
+        const size = buffer.length;
+        let rms = 0;
+        for (let i = 0; i < size; i++) rms += buffer[i] * buffer[i];
+        rms = Math.sqrt(rms / size);
+        if (rms < 0.012) return null;
+
+        let start = 0;
+        let end = size - 1;
+        while (start < size / 2 && Math.abs(buffer[start]) < 0.015) start++;
+        while (end > size / 2 && Math.abs(buffer[end]) < 0.015) end--;
+        const clipped = buffer.slice(start, end + 1);
+        const n = clipped.length;
+        if (n < 32) return null;
+
+        const corr = new Float32Array(n);
+        for (let lag = 0; lag < n; lag++) {
+          let sum = 0;
+          for (let i = 0; i < n - lag; i++) sum += clipped[i] * clipped[i + lag];
+          corr[lag] = sum;
+        }
+
+        let d = 0;
+        while (d + 1 < n && corr[d] > corr[d + 1]) d++;
+        let best = -1;
+        let max = -1;
+        for (let i = d; i < n; i++) {
+          if (corr[i] > max) {
+            max = corr[i];
+            best = i;
+          }
+        }
+        if (best <= 0) return null;
+
+        const y1 = corr[best - 1] || corr[best];
+        const y2 = corr[best];
+        const y3 = corr[best + 1] || corr[best];
+        const denom = (2 * y2) - y1 - y3;
+        const shift = denom !== 0 ? (y3 - y1) / (2 * denom) : 0;
+        const period = best + shift;
+        if (!Number.isFinite(period) || period <= 0) return null;
+        return sampleRate / period;
+      }
+
+      function estimateSpectralPeakFreq(analyserNode, sampleRate) {
+        if (!analyserNode || !Number.isFinite(sampleRate)) return null;
+        const bins = new Float32Array(analyserNode.frequencyBinCount);
+        analyserNode.getFloatFrequencyData(bins);
+        let bestIdx = -1;
+        let bestDb = -Infinity;
+        const binHz = sampleRate / analyserNode.fftSize;
+        for (let i = 1; i < bins.length; i++) {
+          const f = i * binHz;
+          if (f < 40 || f > 3500) continue;
+          const db = bins[i];
+          if (db > bestDb) {
+            bestDb = db;
+            bestIdx = i;
+          }
+        }
+        if (bestIdx < 1 || !Number.isFinite(bestDb) || bestDb < -95) return null;
+        return bestIdx * binHz;
+      }
+
+      function correctPianoFrequency(freq, peakFreq) {
+        if (!Number.isFinite(freq) || freq <= 0) return freq;
+        // Disabled for now: spectral octave correction hurt stability on real input.
+        return freq;
+      }
+
+      function calcRms(buffer) {
+        let sum = 0;
+        for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
+        return Math.sqrt(sum / Math.max(1, buffer.length));
+      }
+
+      function timelinePosForMs(nowMs) {
+        const start = timelineStartMs || nowMs;
+        const elapsedSec = Math.max(0, (nowMs - start) / 1000);
+        const rowWidth = Math.max(1, TIMELINE_RIGHT_X - TIMELINE_LEFT_X);
+        const px = elapsedSec * TIMELINE_PX_PER_SEC;
+        const row = Math.max(0, Math.floor(px / rowWidth));
+        const x = TIMELINE_LEFT_X + (px % rowWidth);
+        return { x: Math.min(TIMELINE_RIGHT_X, x), row };
+      }
+
+      function median(values) {
+        if (!Array.isArray(values) || values.length === 0) return null;
+        const sorted = [...values].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return (sorted.length % 2) ? sorted[mid] : ((sorted[mid - 1] + sorted[mid]) * 0.5);
+      }
+
+      function updateBeatEstimate() {
+        if (onsetTimesMs.length < 3) return;
+        const intervalsSec = [];
+        for (let i = 1; i < onsetTimesMs.length; i++) {
+          const dt = (onsetTimesMs[i] - onsetTimesMs[i - 1]) / 1000;
+          if (Number.isFinite(dt) && dt >= 0.18 && dt <= 2.2) intervalsSec.push(dt);
+        }
+        if (!intervalsSec.length) return;
+        let beat = median(intervalsSec);
+        if (!Number.isFinite(beat) || beat <= 0) return;
+        // Normalize toward typical quarter-note range.
+        while (beat > 1.15) beat /= 2;
+        while (beat < 0.28) beat *= 2;
+        estimatedBeatSec = (estimatedBeatSec * 0.72) + (beat * 0.28);
+      }
+
+      function plotTone(midi, nowMs) {
+        const preset = getModePreset();
+        if (!timelineStartMs) timelineStartMs = nowMs;
+        const pos = timelinePosForMs(nowMs);
+        if (pos.x > 0) {
+          const last = toneTimeline[toneTimeline.length - 1] || null;
+          if (last && Number.isFinite(last.t)) {
+            const lastPos = timelinePosForMs(Number(last.t));
+            const dtMs = Math.max(0, nowMs - Number(last.t));
+            const dx = Math.abs(pos.x - Number(lastPos.x || 0));
+            const dMidi = Math.abs(Number(midi) - Number(last.midi || 0));
+            const tooClose = dtMs < preset.minNoteGapMs || dx < preset.minNoteGapPx;
+            if (tooClose) {
+              if (dMidi <= preset.clashReplaceMidiDelta) {
+                // Voice jitter correction: keep one note slot, update its pitch/time.
+                last.midi = midi;
+                last.t = nowMs;
+              }
+              return;
+            }
+          }
+          toneTimeline.push({ t: nowMs, midi });
+          onsetTimesMs.push(nowMs);
+          if (onsetTimesMs.length > 24) onsetTimesMs.shift();
+          updateBeatEstimate();
+        }
+      }
+
+      function drawStaff(midiFloat) {
+        const width = 900;
+        const left = 70;
+        const right = width - 30;
+        const topLine = 70;
+        const gap = 16;
+        const barlineX = 120;
+        const noteX = 170;
+        // Fixed treble-clef mapping (G clef): E4 is bottom line.
+        // This keeps note placement absolute (e.g., D always on D position),
+        // instead of shifting by the first detected note.
+        const anchorStep = REF_STEP_E4;
+        // Treble clef with octave marker below (8vb):
+        // sounding pitch is an octave lower than written pitch.
+        // For voice mode we place notes at written pitch (sounding + 12 semitones).
+        const displayTransposeSemitones = (detectMode === "voice") ? 12 : 0;
+        const displayMidiFromSounding = (midiVal) => {
+          let m = Number(midiVal || 0);
+          while (m < displayFloorMidi) m += 12;
+          return m + displayTransposeSemitones;
+        };
+        const rowStride = (gap * 4) + SYSTEM_ROW_GAP;
+        const timelineLeft = noteX + 40;
+        const timelineRight = right - 10;
+
+        let maxRow = 0;
+        for (let i = 0; i < pitchTrace.length; i++) {
+          const p = pitchTrace[i];
+          if (Number.isFinite(p?.t)) {
+            const pos = timelinePosForMs(Number(p.t));
+            if (pos.row > maxRow) maxRow = pos.row;
+          }
+        }
+        for (let i = 0; i < toneTimeline.length; i++) {
+          const p = toneTimeline[i];
+          if (Number.isFinite(p?.t)) {
+            const pos = timelinePosForMs(Number(p.t));
+            if (pos.row > maxRow) maxRow = pos.row;
+          }
+        }
+
+        const height = Math.max(220, topLine + (maxRow * rowStride) + gap * 4 + 90);
+        staff.setAttribute("viewBox", `0 0 ${width} ${height}`);
+        staff.style.height = `${height}px`;
+
+        const midiToStaffY = (midiVal, row) => {
+          const rowTop = topLine + (row * rowStride);
+          const rowBottom = rowTop + gap * 4;
+          const stepDelta = midiToDiatonicStep(midiVal) - anchorStep;
+          // One diatonic step = one line/space = half the line gap.
+          return rowBottom - (stepDelta * (gap * 0.5));
+        };
+
+        // Continuous pitch-to-Y mapping for the analog trace:
+        // interpolate between neighboring semitone anchor positions.
+        const midiToTraceY = (midiVal, row) => {
+          const lo = Math.floor(Number(midiVal || 0));
+          const hi = lo + 1;
+          const frac = Number(midiVal || 0) - lo;
+          const yLo = midiToStaffY(lo, row);
+          const yHi = midiToStaffY(hi, row);
+          return yLo + ((yHi - yLo) * frac);
+        };
+
+        const livePos = timelinePosForMs(performance.now());
+        const noteY = midiToStaffY(displayMidiFromSounding(midiFloat), livePos.row);
+
+        const lines = [];
+        const barlines = [];
+        for (let row = 0; row <= maxRow; row++) {
+          const rowTop = topLine + (row * rowStride);
+          const rowBottom = rowTop + gap * 4;
+          for (let i = 0; i < 5; i++) {
+            const y = rowTop + i * gap;
+            lines.push(`<line x1="${left}" y1="${y}" x2="${right}" y2="${y}" stroke="#111827" stroke-width="1.4"/>`);
+          }
+          for (let x = barlineX; x < right; x += 180) {
+            barlines.push(`<line x1="${x}" y1="${rowTop - 12}" x2="${x}" y2="${rowBottom + 12}" stroke="#94a3b8" stroke-width="1.6"/>`);
+          }
+        }
+
+        const timeBarlines = [];
+        const barlineStepPx = Math.max(20, TIMELINE_PX_PER_SEC * Math.max(0.28, Math.min(1.15, estimatedBeatSec)));
+        for (let row = 0; row <= maxRow; row++) {
+          const rowTop = topLine + (row * rowStride);
+          const rowBottom = rowTop + gap * 4;
+          let barIdx = 0;
+          for (let x = timelineLeft; x <= timelineRight; x += barlineStepPx) {
+            const strong = (barIdx % 4) === 0;
+            timeBarlines.push(
+              `<line x1="${x.toFixed(2)}" y1="${(rowTop - 14).toFixed(2)}" x2="${x.toFixed(2)}" y2="${(rowBottom + 14).toFixed(2)}" stroke="${strong ? "#64748b" : "#cbd5e1"}" stroke-width="${strong ? 1.5 : 1}"/>`
+            );
+            barIdx += 1;
+          }
+        }
+
+        const timelinePoints = [];
+        const timelineStems = [];
+        const timelineLedgers = [];
+        const timelineLabels = [];
+        const timelinePitchNums = [];
+        const timelineDurationDots = [];
+        const timelineFlags = [];
+        const traceSegments = [];
+        const traceStateByRow = new Map();
+        const traceRawStateByRow = new Map();
+        let prevTracePoint = null;
+        for (let i = 0; i < pitchTrace.length; i++) {
+          const p = pitchTrace[i];
+          const pos = timelinePosForMs(Number(p.t || 0));
+          const x = Number(pos.x);
+          const row = Number(pos.row || 0);
+          if (x < timelineLeft || x > timelineRight) continue;
+
+          const rawMidi = Number(p.midi || 0);
+          const prevRaw = traceRawStateByRow.get(row);
+          let deglitchedRaw = rawMidi;
+          if (Number.isFinite(prevRaw) && Math.abs(rawMidi - prevRaw) > TRACE_ANOMALY_SEMITONES) {
+            // Spike gate: prune isolated extreme jumps while keeping analog flow.
+            deglitchedRaw = prevRaw;
+          }
+          traceRawStateByRow.set(row, deglitchedRaw);
+
+          const prevMidi = traceStateByRow.get(row);
+          let normMidi = deglitchedRaw;
+          if (Number.isFinite(prevMidi)) {
+            const clamped = Math.max(
+              prevMidi - TRACE_MAX_JUMP_PER_SAMPLE,
+              Math.min(prevMidi + TRACE_MAX_JUMP_PER_SAMPLE, deglitchedRaw)
+            );
+            normMidi = (prevMidi * TRACE_SMOOTH_KEEP) + (clamped * (1 - TRACE_SMOOTH_KEEP));
+          }
+          if (TRACE_SNAP_STRENGTH > 0) {
+            const quarterTone = Math.round(normMidi * 2) / 2;
+            normMidi = (normMidi * (1 - TRACE_SNAP_STRENGTH)) + (quarterTone * TRACE_SNAP_STRENGTH);
+          }
+          traceStateByRow.set(row, normMidi);
+
+          const y = midiToTraceY(displayMidiFromSounding(normMidi), row);
+          const rms = Number(p.rms || 0);
+          const normRms = Math.max(0, Math.min(1, (rms - TRACE_RMS_MIN) / Math.max(1e-6, (TRACE_RMS_MAX - TRACE_RMS_MIN))));
+          const segWidth = TRACE_MIN_WIDTH + (TRACE_MAX_WIDTH - TRACE_MIN_WIDTH) * normRms;
+
+          if (prevTracePoint && prevTracePoint.row === row) {
+            traceSegments.push(
+              `<line x1="${prevTracePoint.x.toFixed(2)}" y1="${prevTracePoint.y.toFixed(2)}" x2="${x.toFixed(2)}" y2="${y.toFixed(2)}" stroke="#0ea5e9" stroke-width="${segWidth.toFixed(2)}" stroke-linecap="round" opacity="0.9"/>`
+            );
+          }
+          prevTracePoint = { x, y, row };
+        }
+
+        const beatSecRef = Math.max(0.28, Math.min(1.15, Number(estimatedBeatSec || 1)));
+        const deltas = [];
+        for (let i = 0; i + 1 < toneTimeline.length; i++) {
+          const dt = (Number(toneTimeline[i + 1]?.t || 0) - Number(toneTimeline[i]?.t || 0)) / 1000;
+          if (Number.isFinite(dt) && dt > 0.05 && dt < 4) deltas.push(dt);
+        }
+        const sortedDeltas = [...deltas].sort((a, b) => a - b);
+        const medianDelta = sortedDeltas.length
+          ? sortedDeltas[Math.floor(sortedDeltas.length / 2)]
+          : beatSecRef;
+        const noteDurationsSec = toneTimeline.map((_, idx) => {
+          const currT = Number(toneTimeline[idx]?.t || 0);
+          const nextT = Number(toneTimeline[idx + 1]?.t || 0);
+          if (idx + 1 < toneTimeline.length && nextT > currT) return (nextT - currT) / 1000;
+          return medianDelta;
+        });
+
+        const classifyDuration = (idx) => {
+          const durSec = Number(noteDurationsSec[idx] || medianDelta);
+          const beats = durSec / Math.max(0.2, beatSecRef);
+          const isEdgeNote = (idx === 0 || idx === toneTimeline.length - 1);
+          const enoughContext = toneTimeline.length >= 4;
+          const clearlyShort = beats <= 0.62 && durSec <= (medianDelta * 0.82);
+          const prevDur = Number(noteDurationsSec[idx - 1] || durSec);
+          const nextDur = Number(noteDurationsSec[idx + 1] || durSec);
+          const prevShort = (prevDur / Math.max(0.2, beatSecRef)) <= 0.78;
+          const nextShort = (nextDur / Math.max(0.2, beatSecRef)) <= 0.78;
+          const prevMidi = Number(toneTimeline[idx - 1]?.midi ?? toneTimeline[idx]?.midi ?? 0);
+          const currMidi = Number(toneTimeline[idx]?.midi ?? 0);
+          const nextMidi = Number(toneTimeline[idx + 1]?.midi ?? currMidi);
+          const melodicMotionStrong = Math.abs(currMidi - prevMidi) >= 2 || Math.abs(nextMidi - currMidi) >= 2;
+          if (beats >= 2.45 && beats <= 3.55) return { half: true, dotted: true, eighth: false };
+          if (beats >= 1.6 && beats <= 2.4) return { half: true, dotted: false, eighth: false };
+          if (!isEdgeNote && enoughContext && clearlyShort) {
+            if (detectMode === "voice") {
+              const rhythmicTripletEvidence = prevShort && nextShort;
+              if (rhythmicTripletEvidence && melodicMotionStrong) return { half: false, dotted: false, eighth: true };
+              return { half: false, dotted: false, eighth: false };
+            }
+            return { half: false, dotted: false, eighth: true };
+          }
+          return { half: false, dotted: false, eighth: false };
+        };
+
+        for (let i = 0; i < toneTimeline.length; i++) {
+          const p = toneTimeline[i];
+          const pos = timelinePosForMs(Number(p.t || 0));
+          const x = Number(pos.x);
+          const row = Number(pos.row || 0);
+          if (x < timelineLeft || x > timelineRight) continue;
+          const rowTop = topLine + (row * rowStride);
+          const rowBottom = rowTop + gap * 4;
+          const rowMid = rowTop + gap * 2;
+          const displayMidi = displayMidiFromSounding(p.midi);
+          const y = midiToStaffY(displayMidi, row);
+          const durationClass = classifyDuration(i);
+          const stemUp = y >= rowMid;
+          const stemLen = 34;
+          if (stemUp) {
+            timelineStems.push(`<line x1="${(x + 10).toFixed(2)}" y1="${y.toFixed(2)}" x2="${(x + 10).toFixed(2)}" y2="${(y - stemLen).toFixed(2)}" stroke="#0f172a" stroke-width="2.8"/>`);
+            if (durationClass.eighth) {
+              const fx = x + 10;
+              const fy = y - stemLen;
+              timelineFlags.push(
+                `<path d="M ${fx.toFixed(2)} ${fy.toFixed(2)} Q ${(fx + 10).toFixed(2)} ${(fy + 2).toFixed(2)} ${(fx + 9).toFixed(2)} ${(fy + 14).toFixed(2)} Q ${(fx + 5).toFixed(2)} ${(fy + 10).toFixed(2)} ${fx.toFixed(2)} ${(fy + 16).toFixed(2)}" fill="#0f172a"/>`
+              );
+            }
+          } else {
+            timelineStems.push(`<line x1="${(x - 10).toFixed(2)}" y1="${y.toFixed(2)}" x2="${(x - 10).toFixed(2)}" y2="${(y + stemLen).toFixed(2)}" stroke="#0f172a" stroke-width="2.8"/>`);
+            if (durationClass.eighth) {
+              const fx = x - 10;
+              const fy = y + stemLen;
+              timelineFlags.push(
+                `<path d="M ${fx.toFixed(2)} ${fy.toFixed(2)} Q ${(fx - 10).toFixed(2)} ${(fy - 2).toFixed(2)} ${(fx - 9).toFixed(2)} ${(fy - 14).toFixed(2)} Q ${(fx - 5).toFixed(2)} ${(fy - 10).toFixed(2)} ${fx.toFixed(2)} ${(fy - 16).toFixed(2)}" fill="#0f172a"/>`
+              );
+            }
+          }
+
+          if (y < rowTop - 1) {
+            for (let ly = rowTop - gap; ly >= y - 1; ly -= gap) {
+              timelineLedgers.push(`<line x1="${(x - 11).toFixed(2)}" y1="${ly.toFixed(2)}" x2="${(x + 11).toFixed(2)}" y2="${ly.toFixed(2)}" stroke="#334155" stroke-width="1"/>`);
+            }
+          } else if (y > rowBottom + 1) {
+            for (let ly = rowBottom + gap; ly <= y + 1; ly += gap) {
+              timelineLedgers.push(`<line x1="${(x - 11).toFixed(2)}" y1="${ly.toFixed(2)}" x2="${(x + 11).toFixed(2)}" y2="${ly.toFixed(2)}" stroke="#334155" stroke-width="1"/>`);
+            }
+          }
+
+          if (durationClass.half) {
+            timelinePoints.push(`<ellipse cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" rx="9.4" ry="7.0" fill="none" stroke="#0f172a" stroke-width="2.0" transform="rotate(-20 ${x.toFixed(2)} ${y.toFixed(2)})"/>`);
+          } else {
+            timelinePoints.push(`<ellipse cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" rx="9.4" ry="7.0" fill="#0f172a" transform="rotate(-20 ${x.toFixed(2)} ${y.toFixed(2)})"/>`);
+          }
+          if (durationClass.dotted) {
+            const dotX = x + 15;
+            const dotY = y - 1;
+            timelineDurationDots.push(`<circle cx="${dotX.toFixed(2)}" cy="${dotY.toFixed(2)}" r="2.0" fill="#0f172a"/>`);
+          }
+          const pitchNumY = rowTop - 18;
+          timelinePitchNums.push(`<text x="${x.toFixed(2)}" y="${pitchNumY.toFixed(2)}" fill="#64748b" font-size="8" font-family="Segoe UI" text-anchor="middle">${Math.round(Number(p.midi || 0))}</text>`);
+          timelineLabels.push(`<text x="${x.toFixed(2)}" y="${(y - 14).toFixed(2)}" fill="#334155" font-size="9" font-family="Segoe UI" text-anchor="middle">${midiToKeyName(displayMidi)}</text>`);
+        }
+
+        let color = "#0ea5e9";
+        if (Number.isFinite(midiFloat)) color = "#0f172a";
+        staff.innerHTML = `
+          <rect x="0" y="0" width="${width}" height="${height}" fill="white"/>
+          ${lines.join("")}
+          ${barlines.join("")}
+          ${timeBarlines.join("")}
+          ${traceSegments.join("")}
+          ${timelineLedgers.join("")}
+          ${timelineStems.join("")}
+          ${timelineFlags.join("")}
+          ${timelineDurationDots.join("")}
+          ${timelinePitchNums.join("")}
+          ${timelineLabels.join("")}
+          ${timelinePoints.join("")}
+          <ellipse cx="${noteX}" cy="${noteY}" rx="16.5" ry="11.5" fill="${color}" transform="rotate(-20 ${noteX} ${noteY})"/>
+          <text x="${noteX + 24}" y="${noteY + 5}" fill="#334155" font-size="14" font-family="Segoe UI">${Number.isFinite(midiFloat) ? midiToName(midiFloat) : "-"}</text>
+          <text x="${timelineLeft}" y="${(topLine + (maxRow * rowStride) + gap * 4 + 34).toFixed(2)}" fill="#64748b" font-size="12" font-family="Segoe UI">Time -> X | Notes = estimated pitch | Blue line = real pitch (lightly smoothed) | Beat est: ${(60 / Math.max(0.28, estimatedBeatSec)).toFixed(0)} BPM</text>
+        `;
+      }
+
+      function updateUI(freq, rms, peakFreq = null) {
+        const preset = getModePreset();
+        const maxDetectFreq = (detectMode === "piano") ? 2800 : 1200;
+        const minDetectFreq = 35;
+        let workFreq = Number(freq);
+        if (detectMode === "piano") {
+          workFreq = correctPianoFrequency(workFreq, peakFreq);
+        }
+        if (!Number.isFinite(workFreq) || workFreq < minDetectFreq || workFreq > maxDetectFreq) {
+          if (!Number.isFinite(rms) || rms < SILENCE_RMS) wasVoiced = false;
+          pendingChangeMidi = null;
+          pendingChangeCount = 0;
+          noteLabel.textContent = "-";
+          hzLabel.textContent = "-";
+          centLabel.textContent = "-";
+          scoreLabel.textContent = "-";
+          needle.style.left = "50%";
+          drawStaff(NaN);
+          return;
+        }
+
+        smoothingFreq = smoothingFreq == null
+          ? workFreq
+          : (smoothingFreq * preset.smoothingKeep + workFreq * (1 - preset.smoothingKeep));
+        const midi = hzToMidi(smoothingFreq);
+        const nearestMidi = Math.round(midi);
+        const nearestFreq = midiToHz(nearestMidi);
+        const cents = 1200 * Math.log2(smoothingFreq / nearestFreq);
+        const clampedCents = Math.max(-50, Math.min(50, cents));
+        const score = Math.max(0, Math.round(100 - (Math.abs(clampedCents) * 2)));
+
+        noteLabel.textContent = midiToName(nearestMidi);
+        hzLabel.textContent = smoothingFreq.toFixed(1);
+        centLabel.textContent = `${cents >= 0 ? "+" : ""}${cents.toFixed(1)}`;
+        scoreLabel.textContent = `${score}%`;
+
+        const pct = ((clampedCents + 50) / 100) * 100;
+        needle.style.left = `${pct}%`;
+        needle.style.background = score >= 85 ? "var(--ok)" : score >= 60 ? "var(--warn)" : "var(--bad)";
+
+        const nowMs = performance.now();
+        const voicedNow = Number.isFinite(rms) ? rms >= SILENCE_RMS : true;
+        const newVoicedAttack = voicedNow && !wasVoiced;
+        if (voicedNow) {
+          if (!timelineStartMs) timelineStartMs = nowMs;
+          if (!lastTraceAtMs || (nowMs - lastTraceAtMs) >= TRACE_SAMPLE_MS) {
+            const tx = timelinePosForMs(nowMs).x;
+            if (tx > 0) pitchTrace.push({ midi, t: nowMs, rms });
+            lastTraceAtMs = nowMs;
+          }
+        }
+
+        if (voicedNow) {
+          if (stableMidi === nearestMidi) stableCount += 1;
+          else {
+            stableMidi = nearestMidi;
+            stableCount = 1;
+          }
+        } else {
+          stableMidi = null;
+          stableCount = 0;
+          pendingChangeMidi = null;
+          pendingChangeCount = 0;
+        }
+
+        const stableEnough = stableCount >= preset.pitchStableFrames;
+        if (voicedNow && stableEnough) {
+          if (lastPlottedMidi === null) {
+            // First stable pitch starts the notation line.
+            plotTone(nearestMidi, nowMs);
+            lastPlottedMidi = nearestMidi;
+            lastPlottedAtMs = nowMs;
+            stableCount = 0;
+          } else {
+            const semitoneDelta = Math.abs(nearestMidi - lastPlottedMidi);
+            if (semitoneDelta >= preset.semitoneChangeMin) {
+              if (pendingChangeMidi === nearestMidi) pendingChangeCount += 1;
+              else {
+                pendingChangeMidi = nearestMidi;
+                pendingChangeCount = 1;
+              }
+
+              const enoughTimeSinceLast = (nowMs - lastPlottedAtMs) >= preset.minPlotIntervalMs;
+              const confirmed = pendingChangeCount >= preset.changeConfirmFrames;
+              if (confirmed && enoughTimeSinceLast) {
+                // Plot only confirmed sustained pitch changes.
+                plotTone(nearestMidi, nowMs);
+                lastPlottedMidi = nearestMidi;
+                lastPlottedAtMs = nowMs;
+                stableCount = 0;
+                pendingChangeMidi = null;
+                pendingChangeCount = 0;
+              }
+            } else {
+              const retriggerGapOk = (nowMs - lastPlottedAtMs) >= preset.sameNoteRetriggerMs;
+              if (newVoicedAttack && retriggerGapOk) {
+                // Allow repeated same-note taps (especially for piano staccato).
+                plotTone(nearestMidi, nowMs);
+                lastPlottedMidi = nearestMidi;
+                lastPlottedAtMs = nowMs;
+                stableCount = 0;
+              }
+              pendingChangeMidi = null;
+              pendingChangeCount = 0;
+            }
+          }
+        }
+        wasVoiced = voicedNow;
+        drawStaff(midi);
+      }
+
+      function tick() {
+        if (!analyser || !audioCtx) return;
+        const data = new Float32Array(analyser.fftSize);
+        analyser.getFloatTimeDomainData(data);
+        const rms = calcRms(data);
+        const freq = detectPitchACF(data, audioCtx.sampleRate);
+        const peakFreq = (detectMode === "piano") ? estimateSpectralPeakFreq(analyser, audioCtx.sampleRate) : null;
+        updateUI(freq, rms, peakFreq);
+        raf = requestAnimationFrame(tick);
+      }
+
+      async function start() {
+        if (audioCtx) return;
+        try {
+          detectMode = String(inputModeEl?.value || "voice");
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: false,
+              autoGainControl: false,
+              noiseSuppression: false
+            }
+          });
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          source = audioCtx.createMediaStreamSource(stream);
+          analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 4096;
+          analyser.smoothingTimeConstant = 0.1;
+          source.connect(analyser);
+          setStatus(`Mic running (${detectMode} mode).`);
+          smoothingFreq = null;
+          toneTimeline = [];
+          pitchTrace = [];
+          onsetTimesMs = [];
+          estimatedBeatSec = 1.0;
+          timelineStartMs = 0;
+          lastPlottedMidi = null;
+          stableMidi = null;
+          stableCount = 0;
+          pendingChangeMidi = null;
+          pendingChangeCount = 0;
+          lastPlottedAtMs = 0;
+          lastTraceAtMs = 0;
+          wasVoiced = false;
+          tick();
+        } catch (err) {
+          setStatus(`Mic error: ${err && err.message ? err.message : String(err)}`);
+        }
+      }
+
+      function stop() {
+        if (raf) cancelAnimationFrame(raf);
+        raf = 0;
+        if (source) source.disconnect();
+        source = null;
+        analyser = null;
+        if (stream) {
+          stream.getTracks().forEach((t) => t.stop());
+          stream = null;
+        }
+        if (audioCtx) {
+          audioCtx.close();
+          audioCtx = null;
+        }
+        // Keep last detected values and plotted notes visible after stopping.
+        lastPlottedMidi = null;
+        stableMidi = null;
+        stableCount = 0;
+        pendingChangeMidi = null;
+        pendingChangeCount = 0;
+        lastPlottedAtMs = 0;
+        lastTraceAtMs = 0;
+        wasVoiced = false;
+        setStatus("Stopped (notes remain visible)");
+        drawStaff(Number.isFinite(smoothingFreq) ? hzToMidi(smoothingFreq) : NaN);
+      }
+
+      startBtnGrid.addEventListener("click", start);
+      stopBtnGrid.addEventListener("click", stop);
+      if (inputModeEl) {
+        inputModeEl.addEventListener("change", () => {
+          detectMode = String(inputModeEl.value || "voice");
+          setStatus(audioCtx ? `Mic running (${detectMode} mode).` : `Idle (${detectMode} mode selected)`);
+        });
+      }
+      if (displayKeyEl) {
+        displayKeyEl.addEventListener("change", () => {
+          displayFloorMidi = Number(displayKeyEl.value || 43);
+          drawStaff(Number.isFinite(smoothingFreq) ? hzToMidi(smoothingFreq) : NaN);
+        });
+      }
+      buildDisplayKeyOptions();
+      drawStaff(NaN);
+    })();
+  </script>
+</body>
+</html>

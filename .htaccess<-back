@@ -1,0 +1,8 @@
+RewriteEngine on 
+RewriteCond %{HTTP_HOST} ^(www.)?geirigrimmi.com$ 
+RewriteCond %{REQUEST_URI} !^/geirigrimmi.com/ 
+RewriteCond %{REQUEST_FILENAME} !-f 
+RewriteCond %{REQUEST_FILENAME} !-d 
+RewriteRule ^(.*)$ /geirigrimmi.com/$1 
+RewriteCond %{HTTP_HOST} ^(www.)?geirigrimmi.com$ 
+RewriteRule ^(/)?$ geirigrimmi.com/index.php [L]

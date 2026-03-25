@@ -1,0 +1,2 @@
+TW-LIGHT-PING lite-v1
+If you can read this on lite.skolaspjall.is, tw-light files are reachable.
