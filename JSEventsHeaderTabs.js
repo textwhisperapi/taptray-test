@@ -39,7 +39,7 @@ window.setPseudoFullscreen = function (enabled) {
 
 window.applyFullscreenChromeVisibility = function (isFullscreen) {
   const hide = !!isFullscreen;
-  const nodes = document.querySelectorAll("nav.navbar, #footerMenu, .top-edit-toolbar");
+  const nodes = document.querySelectorAll("nav.navbar, .top-edit-toolbar");
   const EMPTY_SENTINEL = "__tw_empty__";
   nodes.forEach((el) => {
     if (!el) return;
@@ -205,6 +205,15 @@ window.addEventListener("message", function (event) {
     rememberSidebarState(false);
   }
 });
+
+window.restoreTapTrayMobileSidebar = function () {
+  if (window.innerWidth > 900) return;
+  const sidebar = document.getElementById("sidebarContainer");
+  if (sidebar) {
+    sidebar.classList.add("show");
+  }
+  document.querySelector('.tab-link[data-target="listsTab"]')?.click();
+};
 
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -453,8 +462,6 @@ window.switchTab = function (targetId) {
   }
 };
 
-  // Startup: restore stored text/pdf tab if present.
-  // Otherwise, selected items default to PDF.
   const hasSelectedItem = !!(window.currentSurrogate && String(window.currentSurrogate) !== "0");
   const savedSessionTab = String(sessionStorage.getItem(TAB_STORAGE_KEY) || "");
   const savedLocalTab = String(localStorage.getItem(TAB_STORAGE_KEY) || "");
@@ -594,11 +601,8 @@ window.initFooterMenu = function () {
 
 
         if (target === "sidebar") {
-        
          window.toggleSidebar("footer");
-        
          return;
-        
         }
 
         if (target === "chatTab") {
@@ -617,6 +621,7 @@ window.initFooterMenu = function () {
             }
             const header = document.getElementById("chatHeaderTitle");
             if (header) header.textContent = "List Chat";
+            window.restoreTapTrayMobileSidebar?.();
             return;
           }
         

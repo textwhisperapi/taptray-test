@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/taptray_orders.php';
 sec_session_start();
 
 $pendingOrder = is_array($_SESSION['taptray_completed_order'] ?? null)
@@ -67,7 +68,6 @@ $items = is_array($pendingOrder['items'] ?? null) ? $pendingOrder['items'] : [];
 
 $headline = 'Payment received';
 $subline = 'Your order has been confirmed and sent on its way.';
-$statusPill = 'Paid';
 $worldlineStatus = '';
 
 if ($hostedCheckoutId !== '') {
@@ -75,6 +75,18 @@ if ($hostedCheckoutId !== '') {
 }
 
 $formattedTotal = tt_success_format_minor($amountMinor, $currency);
+$storedOrder = null;
+if (is_array($pendingOrder)) {
+    $storedOrder = tt_orders_upsert_paid_order($mysqli, $pendingOrder);
+}
+$subline = ($storedOrder['status'] ?? 'in_process') === 'ready'
+    ? 'Your order is ready for pickup.'
+    : 'Your order has been confirmed and is now in process.';
+$vapidKey = getenv('VAPID_PUBLIC_KEY') ?: '';
+$menuReturnUrl = '/';
+if ($orderReference !== '') {
+    $menuReturnUrl = '/?taptray_order=' . rawurlencode($orderReference);
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -173,19 +185,6 @@ $formattedTotal = tt_success_format_minor($amountMinor, $currency);
       margin: 0;
       font-size: clamp(30px, 4vw, 48px);
       line-height: 0.98;
-    }
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 9px 14px;
-      border-radius: 999px;
-      background: var(--success-soft);
-      color: var(--success);
-      border: 1px solid rgba(31, 138, 112, 0.18);
-      font-size: 14px;
-      font-weight: 800;
-      white-space: nowrap;
     }
     .hero-copy {
       margin: 14px 0 0;
@@ -355,7 +354,7 @@ $formattedTotal = tt_success_format_minor($amountMinor, $currency);
 <body>
   <div class="shell">
     <div class="topbar">
-      <a class="back" href="/checkout.php">← Back to checkout</a>
+      <a class="back" href="<?= htmlspecialchars($menuReturnUrl, ENT_QUOTES, 'UTF-8') ?>">← Back to menu</a>
       <div class="brand">TapTray Confirmation</div>
     </div>
 
@@ -365,7 +364,6 @@ $formattedTotal = tt_success_format_minor($amountMinor, $currency);
           <div class="hero-kicker">Order confirmed</div>
           <div class="hero-head">
             <h1><?= htmlspecialchars($headline, ENT_QUOTES, 'UTF-8') ?></h1>
-            <div class="status-pill"><?= htmlspecialchars($statusPill, ENT_QUOTES, 'UTF-8') ?></div>
           </div>
           <p class="hero-copy"><?= htmlspecialchars($subline, ENT_QUOTES, 'UTF-8') ?></p>
 
@@ -444,12 +442,76 @@ $formattedTotal = tt_success_format_minor($amountMinor, $currency);
           </div>
 
           <div class="action-stack">
-            <a class="action-btn primary" href="/">Back to menu</a>
-            <a class="action-btn" href="/checkout.php">View checkout again</a>
+            <a class="action-btn primary" href="<?= htmlspecialchars($menuReturnUrl, ENT_QUOTES, 'UTF-8') ?>">Back to menu</a>
           </div>
         </div>
       </aside>
     </div>
   </div>
+  <script>
+    window.TAPTRAY_MENU_RETURN_URL = <?= json_encode($menuReturnUrl) ?>;
+    window.VAPID_PUBLIC_KEY = <?= json_encode($vapidKey) ?>;
+    window.TAPTRAY_ORDER_REFERENCE = <?= json_encode((string) ($storedOrder['order_reference'] ?? $orderReference)) ?>;
+  </script>
+  <script>
+    try {
+      localStorage.removeItem("taptray:cart");
+      window.taptrayCart = {};
+    } catch (_err) {}
+  </script>
+  <script>
+    (async function () {
+      const returnUrl = String(window.TAPTRAY_MENU_RETURN_URL || "/");
+      const finish = () => {
+        try {
+          window.location.replace(returnUrl);
+        } catch (_err) {
+          window.location.href = returnUrl;
+        }
+      };
+      const fallbackTimer = setTimeout(finish, 1200);
+      try {
+        const orderReference = String(window.TAPTRAY_ORDER_REFERENCE || "").trim();
+        if (!orderReference || !("serviceWorker" in navigator) || !("PushManager" in window) || !window.VAPID_PUBLIC_KEY) {
+          finish();
+          return;
+        }
+        if (Notification.permission === "default") {
+          await Notification.requestPermission();
+        }
+        if (Notification.permission !== "granted") {
+          finish();
+          return;
+        }
+        const reg = await navigator.serviceWorker.ready;
+        const key = (() => {
+          const padding = "=".repeat((4 - window.VAPID_PUBLIC_KEY.length % 4) % 4);
+          const base64 = (window.VAPID_PUBLIC_KEY + padding).replace(/-/g, "+").replace(/_/g, "/");
+          const raw = atob(base64);
+          return Uint8Array.from([...raw].map((ch) => ch.charCodeAt(0)));
+        })();
+        const subscription = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: key
+        });
+        await fetch("/taptray_order_subscribe.php", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            order_reference: orderReference,
+            env: location.host,
+            subscription
+          }),
+          keepalive: true
+        });
+      } catch (err) {
+        console.warn("TapTray order push registration failed", err);
+      } finally {
+        clearTimeout(fallbackTimer);
+        finish();
+      }
+    })();
+  </script>
 </body>
 </html>

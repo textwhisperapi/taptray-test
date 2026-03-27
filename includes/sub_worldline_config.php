@@ -46,6 +46,7 @@ if (!function_exists('wl_env_value')) {
 
 $taptrayWorldlineAutoloadCandidates = [
     __DIR__ . '/../vendor/autoload.php',
+    '/var/textwhisper_vendor/worldline/vendor/autoload.php',
     '/home1/wecanrec/textwhisper_vendor/worldline/vendor/autoload.php',
 ];
 
@@ -53,8 +54,10 @@ $taptrayWorldlineAutoloadLoaded = false;
 foreach ($taptrayWorldlineAutoloadCandidates as $taptrayWorldlineAutoloadPath) {
     if (is_file($taptrayWorldlineAutoloadPath)) {
         require_once $taptrayWorldlineAutoloadPath;
-        $taptrayWorldlineAutoloadLoaded = true;
-        break;
+        if (class_exists('Worldline\\Connect\\Sdk\\Client')) {
+            $taptrayWorldlineAutoloadLoaded = true;
+            break;
+        }
     }
 }
 
@@ -135,8 +138,14 @@ function wl_redirect_url(object $resp): ?string {
         if (preg_match('#^https?://#i', $partial)) {
             return $partial;
         }
-        if (stripos($partial, 'worldline-solutions.com') !== false) {
-            return rtrim(WL_CHECKOUT_SUBDOMAIN, '/') . '/' . preg_replace('#^.*?/checkout/#', 'checkout/', $partial);
+        if (preg_match('#^preprod\.direct\.worldline-solutions\.com/(.+)$#i', $partial, $match)) {
+            return 'https://payment.preprod.direct.worldline-solutions.com/' . ltrim($match[1], '/');
+        }
+        if (preg_match('#^direct\.worldline-solutions\.com/(.+)$#i', $partial, $match)) {
+            return 'https://payment.direct.worldline-solutions.com/' . ltrim($match[1], '/');
+        }
+        if (preg_match('#^[^/]*worldline-solutions\.com/.+$#i', $partial)) {
+            return 'https://' . ltrim($partial, '/');
         }
         return rtrim(WL_CHECKOUT_SUBDOMAIN, '/') . '/' . ltrim($partial, '/');
     }
@@ -256,7 +265,8 @@ function wl_api_request(string $method, string $path, array $query = [], ?array 
     }
 
     $contentType = $body !== null ? 'application/json; charset=utf-8' : '';
-    $dateHeader = gmdate('D, d M Y H:i:s') . ' UTC';
+    // Worldline expects an RFC1123-style HTTP date for signing.
+    $dateHeader = gmdate('D, d M Y H:i:s') . ' GMT';
     $serverMetaInfo = wl_server_meta_info_value();
     $canonicalizedHeaders = wl_build_canonicalized_headers([
         'X-GCS-ServerMetaInfo' => $serverMetaInfo,

@@ -1472,6 +1472,82 @@ function parseTapTrayPriceValue(label = "") {
   return Number.isFinite(value) ? value : 0;
 }
 
+function getTapTrayActiveOrders() {
+  const orders = Array.isArray(window.taptrayActiveOrders) ? window.taptrayActiveOrders : [];
+  return orders.filter((order) => {
+    const status = String(order?.status || "").trim();
+    return status === "in_process" || status === "ready";
+  });
+}
+
+function getTapTrayPastOrders() {
+  return Array.isArray(window.taptrayPastOrders) ? window.taptrayPastOrders : [];
+}
+
+function getTapTrayActiveOrder() {
+  return getTapTrayActiveOrders()[0] || null;
+}
+
+function getTapTrayActiveOrderItem(surrogate) {
+  const key = String(surrogate);
+  for (const order of getTapTrayActiveOrders()) {
+    if (!Array.isArray(order.items)) continue;
+    const found = order.items.find((item) => String(item?.surrogate || "") === key);
+    if (found) return found;
+  }
+  return null;
+}
+
+function getTapTrayLockedLabel(status) {
+  return String(status || "") === "ready" ? "Ready" : "Making";
+}
+
+function renderTapTrayOrderRow(item, options = {}) {
+  const qty = Number(item?.quantity || 0);
+  const price = String(item?.price_label || "").trim();
+  const description = String(item?.short_description || item?.public_description || "").trim();
+  const imageUrl = String(item?.image_url || "").trim();
+  const surrogate = String(item?.surrogate || "").trim();
+  const shortDescription = description.length > 72
+    ? `${description.slice(0, 69).trimEnd()}...`
+    : description;
+  const mediaHtml = imageUrl
+    ? `<div class="item-thumb"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(String(item?.title || "Menu item"))}"></div>`
+    : `<div class="item-thumb is-placeholder"><span>IMG</span></div>`;
+  const priceHtml = price
+    ? `<div class="item-price-chip">${escapeHtml(price)}</div>`
+    : `<div class="item-price-chip is-placeholder">Set price</div>`;
+  const actionLabel = String(options.actionLabel || "").trim();
+  const actionHtml = options.locked
+    ? `<button class="item-square-action" type="button" disabled>${escapeHtml(actionLabel || "Making")}</button>`
+    : `<button class="item-square-action" onclick="taptrayReduceItem(this, ${Number(surrogate || 0)}); event.stopPropagation();">${escapeHtml(actionLabel || "Cancel")}</button>`;
+
+  return `
+    <div class="list-sub-item taptray-order-list-item" data-value="${escapeHtml(surrogate)}">
+      <div class="taptray-menu-row" style="flex:1;">
+        <div class="item-media-rail">
+          <div class="item-square-main">
+            ${mediaHtml}
+            <div class="item-qty-badge">${qty}</div>
+          </div>
+        </div>
+        <div class="taptray-menu-copy">
+          <div class="item-head">
+            <div class="item-title">${escapeHtml(String(item?.title || "Menu item"))}</div>
+          </div>
+          <div class="item-summary${shortDescription ? "" : " is-placeholder"}">${escapeHtml(shortDescription || "Ordered item")}</div>
+        </div>
+        <div class="item-action-square item-action-square-static">
+          ${priceHtml}
+          <div class="item-square-actions">
+            ${actionHtml}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function updateTapTrayOrderBar() {
   const bar = document.getElementById("taptrayOrderBar");
   const meta = document.getElementById("taptrayOrderMeta");
@@ -1481,13 +1557,22 @@ function updateTapTrayOrderBar() {
   const chevron = document.getElementById("taptrayOrderChevron");
   if (!bar || !meta || !payBtn || !itemsHost || !toggleBtn || !chevron) return;
 
+  const activeOrder = getTapTrayActiveOrder();
+  const activeOrders = getTapTrayActiveOrders();
+  const pastOrders = getTapTrayPastOrders();
   const cart = getTapTrayCart();
-  const entries = Object.values(cart);
-  const totalQty = entries.reduce((sum, item) => sum + Number(item?.quantity || 0), 0);
-  const totalPrice = entries.reduce((sum, item) => sum + (parseTapTrayPriceValue(item?.price_label) * Number(item?.quantity || 0)), 0);
+  const cartEntries = Object.values(cart);
+  const activeEntries = activeOrders.flatMap((order) => Array.isArray(order.items) ? order.items.map((item) => ({
+    ...item,
+    _taptrayOrderStatus: order.status || "in_process",
+    _taptrayOrderReference: order.order_reference || "",
+  })) : []);
+  const totalQty = activeEntries.reduce((sum, item) => sum + Number(item?.quantity || 0), 0)
+    + cartEntries.reduce((sum, item) => sum + Number(item?.quantity || 0), 0);
+  const totalPrice = cartEntries.reduce((sum, item) => sum + (parseTapTrayPriceValue(item?.price_label) * Number(item?.quantity || 0)), 0);
   const isExpanded = bar.dataset.expanded === "1";
 
-  if (totalQty <= 0) {
+  if (totalQty <= 0 && pastOrders.length <= 0) {
     bar.hidden = true;
     bar.dataset.expanded = "0";
     meta.textContent = "No items selected";
@@ -1502,60 +1587,77 @@ function updateTapTrayOrderBar() {
 
   bar.hidden = false;
   const priceText = totalPrice > 0 ? ` · ${Math.round(totalPrice)}` : "";
-  meta.textContent = `${totalQty} item${totalQty === 1 ? "" : "s"}${priceText}`;
-  payBtn.disabled = false;
+  const statusText = activeEntries.length ? `${activeOrders.length} active order${activeOrders.length === 1 ? "" : "s"} · ` : "";
+  meta.textContent = `${statusText}${totalQty} item${totalQty === 1 ? "" : "s"}${priceText}`;
+  payBtn.disabled = cartEntries.length <= 0;
+  payBtn.textContent = "Pay";
   toggleBtn.setAttribute("aria-expanded", isExpanded ? "true" : "false");
   chevron.textContent = isExpanded ? "▾" : "▸";
   itemsHost.hidden = !isExpanded;
   persistTapTrayCart();
-  itemsHost.innerHTML = entries.map((item) => {
-    const qty = Number(item?.quantity || 0);
-    const price = String(item?.price_label || "").trim();
-    const description = String(item?.short_description || item?.public_description || "").trim();
-    const imageUrl = String(item?.image_url || "").trim();
-    const shortDescription = description.length > 72
-      ? `${description.slice(0, 69).trimEnd()}...`
-      : description;
-    const mediaHtml = imageUrl
-      ? `<div class="item-thumb"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(String(item?.title || "Menu item"))}"></div>`
-      : `<div class="item-thumb is-placeholder"><span>IMG</span></div>`;
-    const priceHtml = price
-      ? `<div class="item-price-chip">${escapeHtml(price)}</div>`
-      : `<div class="item-price-chip is-placeholder">Set price</div>`;
-    return `
-      <div class="list-sub-item taptray-order-list-item" data-value="${escapeHtml(String(item?.surrogate || ""))}">
-        <div class="taptray-menu-row" style="flex:1;">
-          <div class="item-media-rail">
-            <div class="item-square-main">
-              ${mediaHtml}
-              <div class="item-qty-badge">${qty}</div>
-            </div>
+  const pastMarkup = pastOrders.length ? `
+    <details class="taptray-order-history">
+      <summary class="taptray-order-history-title">Past orders (${pastOrders.length})</summary>
+      ${pastOrders.map((order) => {
+        const pastItems = Array.isArray(order.items) ? order.items : [];
+        return `
+          <div class="taptray-order-history-group">
+            <div class="taptray-order-history-meta">${escapeHtml(order.order_reference || "Past order")}</div>
+            ${pastItems.map((item) => renderTapTrayOrderRow(item, {
+              locked: true,
+              actionLabel: "Closed",
+            })).join("")}
           </div>
-          <div class="taptray-menu-copy">
-            <div class="item-head">
-              <div class="item-title">${escapeHtml(String(item?.title || "Menu item"))}</div>
-            </div>
-            <div class="item-summary${shortDescription ? "" : " is-placeholder"}">${escapeHtml(shortDescription || "Ordered item")}</div>
-          </div>
-          <div class="item-action-square item-action-square-static">
-            ${priceHtml}
-            <div class="item-square-actions">
-              <button class="item-square-action" onclick="taptrayReduceItem(this, ${Number(item?.surrogate || 0)}); event.stopPropagation();">Cancel</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join("");
+        `;
+      }).join("")}
+    </details>
+  ` : "";
+  itemsHost.innerHTML = [
+    ...activeEntries.map((item) => renderTapTrayOrderRow(item, {
+      locked: true,
+      actionLabel: getTapTrayLockedLabel(item?._taptrayOrderStatus),
+    })),
+    ...cartEntries.map((item) => renderTapTrayOrderRow(item, {
+      locked: false,
+      actionLabel: "Cancel",
+    })),
+    pastMarkup,
+  ].join("");
+}
+
+function openTapTrayOrderBarFromDeepLink() {
+  const params = new URLSearchParams(window.location.search || "");
+  const targetOrderRef = String(params.get("taptray_order") || "").trim();
+  if (!targetOrderRef) return;
+
+  const bar = document.getElementById("taptrayOrderBar");
+  if (!bar || bar.hidden) return;
+
+  const hasMatchingActiveOrder = getTapTrayActiveOrders().some((order) =>
+    String(order?.order_reference || "").trim() === targetOrderRef
+  );
+  const hasMatchingPastOrder = getTapTrayPastOrders().some((order) =>
+    String(order?.order_reference || "").trim() === targetOrderRef
+  );
+  if (!hasMatchingActiveOrder && !hasMatchingPastOrder) return;
+
+  bar.dataset.expanded = "1";
+  updateTapTrayOrderBar();
+  bar.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  const nextUrl = new URL(window.location.href);
+  nextUrl.searchParams.delete("taptray_order");
+  window.history.replaceState({}, "", nextUrl.pathname + nextUrl.search + nextUrl.hash);
 }
 
 function updateTapTraySelectionButtons(surrogate) {
   const cart = getTapTrayCart();
   const qty = Number(cart[String(surrogate)]?.quantity || 0);
-  document.querySelectorAll(`.list-sub-item[data-value="${CSS.escape(String(surrogate))}"]`).forEach((row) => {
+  document.querySelectorAll(`.list-sub-item[data-value="${CSS.escape(String(surrogate))}"]:not(.taptray-order-list-item)`).forEach((row) => {
     row.dataset.selectedQty = String(qty);
     row.querySelectorAll(".taptray-order-btn").forEach((button) => {
       button.textContent = "Order";
+      button.disabled = false;
       button.classList.toggle("is-selected", qty > 0);
     });
     const badge = row.querySelector(".item-qty-badge");
@@ -1622,7 +1724,25 @@ window.taptrayRemoveItem = function taptrayRemoveItem(button, surrogate) {
 
 document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("taptray:cart-updated", () => updateTapTrayOrderBar());
+  document.addEventListener("taptray:active-order-updated", (event) => {
+    const orders = Array.isArray(event?.detail?.orders) ? event.detail.orders : [];
+    const pastOrders = Array.isArray(event?.detail?.pastOrders) ? event.detail.pastOrders : [];
+    const order = event?.detail?.order && typeof event.detail.order === "object" ? event.detail.order : null;
+    window.taptrayActiveOrders = orders;
+    window.taptrayPastOrders = pastOrders;
+    window.taptrayActiveOrder = order;
+    updateTapTrayOrderBar();
+    const surrogates = new Set(Object.keys(getTapTrayCart()));
+    const activeItems = orders.flatMap((entry) => Array.isArray(entry?.items) ? entry.items : []);
+    activeItems.forEach((item) => {
+      const key = String(item?.surrogate || "").trim();
+      if (key) surrogates.add(key);
+    });
+    surrogates.forEach((key) => updateTapTraySelectionButtons(key));
+    openTapTrayOrderBarFromDeepLink();
+  });
   updateTapTrayOrderBar();
+  openTapTrayOrderBarFromDeepLink();
 });
 
 document.addEventListener("click", (event) => {
@@ -4122,7 +4242,6 @@ function renderListItems(container, token, items) {
       }
     </div>
   `;
-
   container.innerHTML = html;
   container.dataset.loaded = "1";
 
@@ -4132,6 +4251,12 @@ function renderListItems(container, token, items) {
   if (typeof initListSorting === "function") initListSorting();  
 
   applyListOrderMode(token);
+
+  (items || []).forEach((item) => {
+    const key = String(item?.surrogate || "").trim();
+    if (key) updateTapTraySelectionButtons(key);
+  });
+  updateTapTrayOrderBar();
 
   // Cache last rendered items for offline expansion
   try {

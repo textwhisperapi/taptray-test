@@ -40,7 +40,7 @@ sec_session_start();
 $listOwnerUsername = $_SESSION['username'] ?? '';
 
 //Version is now se globally in service-worker.php
-$version = 'v64';
+$version = 'v105';
 
 
 header('Content-Type: text/html; charset=utf-8');
@@ -1415,6 +1415,40 @@ if (!$vapidKey) {
 <script>
   window.VAPID_PUBLIC_KEY = <?= json_encode($vapidKey) ?>;
 </script>
+<script>
+  (function () {
+    let tapTrayOrderPollId = null;
+
+    async function loadTapTrayActiveOrder() {
+      try {
+        const response = await fetch("/taptray_order_status.php", {
+          credentials: "same-origin",
+          headers: { "Accept": "application/json" }
+        });
+        const data = await response.json().catch(() => null);
+        const orders = Array.isArray(data && data.orders) ? data.orders : [];
+        const pastOrders = Array.isArray(data && data.past_orders) ? data.past_orders : [];
+        const order = data && data.order ? data.order : null;
+        window.taptrayActiveOrders = orders;
+        window.taptrayPastOrders = pastOrders;
+        window.taptrayActiveOrder = order;
+        document.dispatchEvent(new CustomEvent("taptray:active-order-updated", {
+          detail: { order, orders, pastOrders }
+        }));
+      } catch (err) {
+        console.warn("TapTray active order refresh failed", err);
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", loadTapTrayActiveOrder);
+    document.addEventListener("DOMContentLoaded", () => {
+      if (tapTrayOrderPollId !== null) return;
+      tapTrayOrderPollId = window.setInterval(loadTapTrayActiveOrder, 5000);
+    });
+    window.addEventListener("focus", loadTapTrayActiveOrder);
+    window.addEventListener("pageshow", loadTapTrayActiveOrder);
+  })();
+</script>
 
 
 
@@ -1610,7 +1644,8 @@ taptrayDetailStyle.textContent = `
   .item-head { display: block; }
   .item-price-chip { display: inline-flex; align-self: flex-start; margin-top: 1px; padding: 3px 10px; border-radius: 999px; background: color-mix(in srgb, var(--skin-accent) 10%, var(--skin-surface)); color: var(--skin-accent); font-size: 12px; line-height: 1.1; font-weight: 800; border: 1px solid color-mix(in srgb, var(--skin-accent) 14%, var(--skin-border)); white-space: nowrap; }
   .item-price-chip.is-placeholder { background: var(--skin-surface-2); color: var(--skin-muted); border-color: var(--skin-border); font-weight: 600; }
-  .item-summary { font-size: 11px; line-height: 1.22; color: var(--skin-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 100%; }
+  .taptray-menu-copy .item-summary,
+  .taptray-menu-row .item-summary { font-size: 7px !important; line-height: 1.15; color: var(--skin-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 100%; }
   .item-summary.is-placeholder { color: var(--skin-muted); font-style: italic; }
   .item-action-square { display: grid; grid-template-rows: auto auto; gap: 5px; align-items: center; justify-items: stretch; width: 72px; }
   .item-square-main { position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; }
@@ -1659,7 +1694,14 @@ taptrayDetailStyle.textContent = `
   .taptray-order-list-item .taptray-menu-row { pointer-events: none; }
   .taptray-order-list-item .item-action-square,
   .taptray-order-list-item .item-square-action { pointer-events: auto; }
-  @media (max-width: 720px) { .list-sub-item { grid-template-columns: minmax(0, 1fr) auto; min-height: 80px; } .taptray-menu-row { grid-template-columns: 56px minmax(0, 1fr) 68px; gap: 9px; } .item-title { font-size: 16px; } .item-summary { font-size: 11px; } .item-action-square { width: 68px; } .item-square-main { width: 54px; height: 54px; } .item-qty-badge { min-width: 15px; height: 15px; font-size: 9px; top: -4px; left: -4px; } .item-square-action { min-width: 20px; font-size: 10px; } .item-thumb, .item-action-square .item-thumb, .item-media-rail .item-thumb { width: 54px; height: 54px; } .taptray-order-btn { padding: 4px 6px; font-size: 10px; } .item-menu-wrapper { grid-column: 2; grid-row: 1; } .taptray-tree-item-body { grid-template-columns: 96px minmax(0, 1fr); gap: 12px; } .taptray-tree-item-media { width: 96px; } .taptray-tree-item-media img { max-height: 192px; } .taptray-tree-item-title { font-size: 20px; } }
+  .taptray-order-history { margin-top: 6px; border-top: 1px solid var(--skin-border); padding-top: 8px; }
+  .taptray-order-history-title { cursor: pointer; font-size: 12px; font-weight: 800; color: var(--skin-muted); list-style: none; }
+  .taptray-order-history-title::-webkit-details-marker { display: none; }
+  .taptray-order-history-title::before { content: "▸"; display: inline-block; margin-right: 6px; color: var(--skin-muted); }
+  .taptray-order-history[open] .taptray-order-history-title::before { content: "▾"; }
+  .taptray-order-history-group { margin-top: 8px; }
+  .taptray-order-history-meta { margin: 0 0 6px; font-size: 11px; font-weight: 700; color: var(--skin-muted); }
+  @media (max-width: 720px) { .list-sub-item { grid-template-columns: minmax(0, 1fr) auto; min-height: 76px; } .taptray-menu-row { grid-template-columns: 52px minmax(0, 1fr) 84px; gap: 8px; } .item-title { font-size: 15px; } .taptray-menu-copy .item-summary, .taptray-menu-row .item-summary { font-size: 6px !important; } .item-action-square { width: 84px; } .item-square-main { width: 50px; height: 50px; } .item-qty-badge { min-width: 14px; height: 14px; font-size: 8px; top: -4px; left: -4px; } .item-square-action { min-width: 0; width: 100%; padding: 4px 6px; font-size: 9px; white-space: nowrap; } .item-thumb, .item-action-square .item-thumb, .item-media-rail .item-thumb { width: 50px; height: 50px; } .taptray-order-btn { padding: 4px 6px; font-size: 9px; } .taptray-order-title { font-size: 13px; } .taptray-order-meta { font-size: 11px; } .item-menu-wrapper { grid-column: 2; grid-row: 1; } .taptray-tree-item-body { grid-template-columns: 92px minmax(0, 1fr); gap: 10px; } .taptray-tree-item-media { width: 92px; } .taptray-tree-item-media img { max-height: 184px; } .taptray-tree-item-title { font-size: 18px; } }
   @media (max-width: 980px) { .tt-item-shell { grid-template-columns: 1fr; } }
   @media (max-width: 720px) { .tt-item-details { padding: 10px; } .tt-item-main { padding: 16px; } .tt-item-grid { grid-template-columns: 1fr; } .tt-item-header { flex-direction: column; } .tt-item-price-wrap { width: 100%; } }
 `;
@@ -1925,7 +1967,9 @@ function applyEnvZoom(size) {
 
   // Footer buttons
   document.querySelectorAll('#footerMenu .footer-tab-btn').forEach(btn => {
-    btn.style.width = (size * 2.5) + 'px';
+    btn.style.flex = '1 1 0';
+    btn.style.minWidth = '0';
+    btn.style.width = 'auto';
     btn.style.height = (size * 2.5) + 'px';
     btn.style.fontSize = size + 'px';
   });

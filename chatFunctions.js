@@ -1681,6 +1681,7 @@ function toggleChat() {
       ) fullscreenBtn.click();
       delete chat.dataset.fullscreenActivated;
     }
+    window.restoreTapTrayMobileSidebar?.();
   }
 }
 

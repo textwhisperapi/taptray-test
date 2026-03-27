@@ -196,7 +196,7 @@ create / inline dropdown menus......... z-index: 99999
   overscroll-behavior: contain;
   padding-right: 2px;
   box-sizing: border-box;
-  padding-bottom: 180px; /* or a bit more than footer height */
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   background-color: #222;
 }
 
@@ -274,6 +274,7 @@ html, body {
   --app-footer-height: 40px;
   --app-footer-clearance: calc(var(--app-footer-height) + env(safe-area-inset-bottom, 0px));
   --app-main-height: calc((var(--vh, 1vh) * 100) - var(--navbar-height) - var(--app-footer-clearance));
+  --app-mobile-main-height: calc(100dvh - var(--navbar-height) - env(safe-area-inset-bottom, 0px));
 }
 
 
@@ -3584,14 +3585,12 @@ body.edit-mode .overlay-debug-frame-temp .annotation-preview-canvas {
 /* Fullscreen reading mode: hide header/footer chrome completely. */
 body.app-fullscreen {
   --navbar-height: 0px;
-  --app-footer-height: 0px;
-  --app-footer-clearance: 0px;
+  --app-footer-height: 40px;
+  --app-footer-clearance: calc(var(--app-footer-height) + env(safe-area-inset-bottom, 0px));
 }
 
-body.app-fullscreen .mobile-footer-menu,
 body.app-fullscreen .navbar,
 body.app-fullscreen .top-edit-toolbar,
-:fullscreen .mobile-footer-menu,
 :fullscreen .navbar,
 :fullscreen .top-edit-toolbar {
   display: none !important;
@@ -3646,16 +3645,18 @@ body.app-fullscreen .app-fullscreen-exit-btn {
 }
 
 .footer-tab-btn {
-  flex-grow: 1;
+  flex: 1 1 0;
   background: none;
   border: none;
   color: #aaa;
-  width: 20%;
+  min-width: 0;
+  width: auto;
   height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
+  touch-action: manipulation;
   transition: color 0.2s ease-in-out, background 0.2s ease-in-out;
 }
 
@@ -3966,8 +3967,9 @@ body.app-fullscreen .app-fullscreen-exit-btn {
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
-    height: var(--app-main-height) !important;
-    max-height: var(--app-main-height) !important;
+    height: var(--app-mobile-main-height) !important;
+    max-height: var(--app-mobile-main-height) !important;
+    min-height: var(--app-mobile-main-height) !important;
     border-right: 0 !important;
     z-index: 1 !important;
     transition: none !important;
@@ -3988,6 +3990,10 @@ body.app-fullscreen .app-fullscreen-exit-btn {
   #listsTab {
     height: 100%;
     max-height: 100%;
+  }
+
+  .scrollable-list-area {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   }
 }
 
