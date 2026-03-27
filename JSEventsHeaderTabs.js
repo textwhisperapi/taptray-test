@@ -215,6 +215,15 @@ window.restoreTapTrayMobileSidebar = function () {
   document.querySelector('.tab-link[data-target="listsTab"]')?.click();
 };
 
+window.closeTapTrayMobileSidebar = function () {
+  if (window.innerWidth > 900) return;
+  const sidebar = document.getElementById("sidebarContainer");
+  if (sidebar) {
+    sidebar.classList.remove("show");
+    rememberSidebarState(false);
+  }
+};
+
 
 document.addEventListener("DOMContentLoaded", function () {
   const sidebar = document.getElementById("sidebarContainer");
@@ -475,6 +484,10 @@ window.switchTab = function (targetId) {
     window.switchTab("pdfTab");
   }
 
+  const isTapTrayGuest =
+    document.body?.dataset?.appMode === "taptray" &&
+    !document.body.classList.contains("logged-in");
+
   // Keep footer selection and visible content in sync (profile switches can desync).
   var syncingTabs = false;
   function syncTabsIfNeeded() {
@@ -495,18 +508,25 @@ window.switchTab = function (targetId) {
     syncingTabs = false;
   }
 
-  // Initial delayed sync after other startup scripts settle.
-  setTimeout(syncTabsIfNeeded, 120);
-  setTimeout(syncTabsIfNeeded, 600);
+  if (!isTapTrayGuest) {
+    // Initial delayed sync after other startup scripts settle.
+    setTimeout(syncTabsIfNeeded, 120);
+    setTimeout(syncTabsIfNeeded, 600);
+  } else {
+    window.currentActiveTab = "pdfTab";
+  }
 
   // Observe active class mutations on footer/content and auto-heal mismatch.
-  var tabObserver = new MutationObserver(syncTabsIfNeeded);
-  document.querySelectorAll(".footer-tab-btn, #textTabContent, #pdfTabContent").forEach(function (el) {
-    tabObserver.observe(el, { attributes: true, attributeFilter: ["class"] });
-  });
+  var tabObserver = null;
+  if (!isTapTrayGuest) {
+    tabObserver = new MutationObserver(syncTabsIfNeeded);
+    document.querySelectorAll(".footer-tab-btn, #textTabContent, #pdfTabContent").forEach(function (el) {
+      tabObserver.observe(el, { attributes: true, attributeFilter: ["class"] });
+    });
+  }
   window.addEventListener("beforeunload", function () {
     persistActiveMainTabPreference();
-    tabObserver.disconnect();
+    tabObserver?.disconnect();
   });
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "hidden") persistActiveMainTabPreference();
@@ -605,6 +625,8 @@ window.initFooterMenu = function () {
          return;
         }
 
+        window.closeTapTrayMobileSidebar?.();
+
         if (target === "chatTab") {
           const chat = document.getElementById("chatContainer");
           const isVisible = chat.style.display !== "none" && chat.style.display !== "";
@@ -655,6 +677,35 @@ window.initFooterMenu = function () {
           return;
         }
 
+        if (target === "menuOrdersTab") {
+          const ordersUrl = "/menu_orders.php";
+          if (window.currentSurrogate && window.currentSurrogate !== "0") {
+            window.currentSurrogate = "0";
+          }
+          const openedInHomeTab =
+            typeof window.showHomeTab === "function" && window.showHomeTab(ordersUrl);
+          if (!openedInHomeTab) {
+            window.location.href = ordersUrl;
+          }
+          return;
+        }
+
+        if (target === "reservationsTab") {
+          const ownerToken = window.currentOwnerToken || window.currentProfileUsername || "";
+          const reservationsUrl = ownerToken
+            ? `/rp_reservations.php?owner=${encodeURIComponent(ownerToken)}`
+            : "/rp_reservations.php";
+          if (window.currentSurrogate && window.currentSurrogate !== "0") {
+            window.currentSurrogate = "0";
+          }
+          const openedInHomeTab =
+            typeof window.showHomeTab === "function" && window.showHomeTab(reservationsUrl);
+          if (!openedInHomeTab) {
+            window.location.href = reservationsUrl;
+          }
+          return;
+        }
+
         if (target === "menuPreviewTab") {
           const ownerToken = window.currentOwnerToken || "";
           const listToken = window.currentListToken || "";
@@ -671,13 +722,6 @@ window.initFooterMenu = function () {
           return;
         }
 
-        if (target === "importTab") {
-          //fileManager
-          openDriveImportOverlay();
-          return;
-        }
-
-     
         if (target === "fullscreen") {
           const now = Date.now();
           const lastToggleAt = Number(window.__twLastFullscreenToggleTs || 0);
@@ -733,20 +777,6 @@ window.initFooterMenu = function () {
   document.addEventListener("webkitfullscreenchange", syncFullscreenUiState);
   syncFullscreenUiState();
 
-  if (!window.isFullscreenActive()) {
-    const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const isStandalone =
-      window.navigator.standalone === true ||
-      window.matchMedia("(display-mode: standalone)").matches;
-    setTimeout(() => {
-      if (!window.isFullscreenActive()) {
-        window.enterAppFullscreenMode?.({
-          iosScrollFallback: isIos && !isStandalone,
-          preferPseudoOnly: true
-        });
-      }
-    }, 120);
-  }
 };
 
 

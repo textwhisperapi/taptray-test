@@ -201,7 +201,6 @@ logStep("C: JSEvents init start");
     
     const saveAnnotation = document.getElementById("saveAnnotation");
     const clearAnnotation = document.getElementById("clearAnnotation");
-    const textarea = document.getElementById("myTextarea");
     // const path = window.location.pathname.split("/").filter(Boolean);
     const path = window.location.pathname.split("/");
     const token = path[1];
@@ -425,7 +424,7 @@ document.addEventListener("keydown", (e) => {
 
 
 
-    if (!slider || !searchInput || !editModeToggle || !newButton || !saveButton || !deleteButton || !textarea) {
+    if (!searchInput || !editModeToggle) {
         console.error("❌ Required UI elements missing from the DOM!");
         return;
     }
@@ -436,6 +435,7 @@ document.addEventListener("keydown", (e) => {
   const toolbar = document.getElementById("findReplaceToolbar");
   const textarea = document.getElementById("myTextarea");
   const textarea2 = document.getElementById("myTextarea2");
+  if (!toolbar || !textarea) return;
 
   const findInput = document.getElementById("findInput");
   const replaceInput = document.getElementById("replaceInput");
@@ -680,8 +680,8 @@ if (window.editModeWasFromMenu) {
     /* 🖨 PRINT TEXT */
     if (printTextButton) {
       printTextButton.addEventListener("click", () => {
-        const area = document.getElementById("myTextarea");
-        if (!area) return;
+        const rawHtml = String(window._T2_RAWHTML || "").trim();
+        if (!rawHtml) return;
     
         const w = window.open("", "_blank");
         if (!w) return;
@@ -694,7 +694,7 @@ if (window.editModeWasFromMenu) {
               body { font-family: system-ui; padding: 20px; line-height: 1.6; }
             </style>
           </head>
-          <body>${area.innerHTML}</body>
+          <body>${rawHtml}</body>
           </html>
         `);
         w.document.close();
@@ -705,10 +705,7 @@ if (window.editModeWasFromMenu) {
 
     if (exportPdfButton) {
       exportPdfButton.addEventListener("click", () => {
-        const area = document.getElementById("myTextarea");
-        if (!area) return;
-
-        const rawText = (area.value || "").trim();
+        const rawText = String(window._T2_RAWTEXT || "").trim();
         if (!rawText) {
           showFlashMessage?.("⚠️ Nothing to export.");
           return;
@@ -949,7 +946,7 @@ if (window.editModeWasFromMenu) {
     if (refreshButton) {
       refreshButton.addEventListener("click", () => {
         const surrogate = window.currentSurrogate;
-        const text = document.getElementById("myTextarea2")?.value || "";
+        const text = String(window._T2_RAWTEXT || "");
         const match = text.match(/https:\/\/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
         const driveUrl = match ? match[0] : null;
     
@@ -1159,7 +1156,7 @@ if (window.editModeWasFromMenu) {
     
       const isEnabled = document.body.classList.contains("logged-in") && isEditing;
     
-      [newButton, saveButton, deleteButton].forEach(btn => {
+      [newButton, saveButton, deleteButton].filter(Boolean).forEach(btn => {
         btn.disabled = !isEnabled;
         btn.classList.toggle("active", isEnabled);
       });
@@ -1194,9 +1191,6 @@ editModeToggle.forEach(toggle => {
 
     // ✅ NEW: update touch behavior
     updateTouchActionForMode?.();
-
-    const textarea = document.getElementById("myTextarea");
-    if (textarea) textarea.readOnly = !isEditing;
 
     if (typeof isLoggedIn !== "undefined" && isLoggedIn && typeof updateButtonState === "function") {
       updateButtonState();
@@ -1250,44 +1244,46 @@ playModeToggle.forEach(toggle => {
 
     // ➕ New button behavior
     
-    newButton.addEventListener("click", function () {
+    if (newButton) {
+      newButton.addEventListener("click", function () {
     
-    let token = window.currentListToken;
+        let token = window.currentListToken;
     
-    // Fallback: find active group if no item selected
-    if (!token) {
-      const activeGroup = document.querySelector(".group-item.active-list");
-      token = activeGroup?.dataset.group || loggedInUserId;
-    }
+        // Fallback: find active group if no item selected
+        if (!token) {
+          const activeGroup = document.querySelector(".group-item.active-list");
+          token = activeGroup?.dataset.group || loggedInUserId;
+        }
 
     
-      // 🔄 Fallback: try to find any visible list if own list not rendered
-      let listContainer = document.getElementById(`list-${token}`);
-      if (!listContainer) {
-        const fallback = document.querySelector(`[id^="list-"]`);
-        if (fallback) {
-          listContainer = fallback;
-          console.warn("⚠️ Fallback used for list container:", fallback.id);
+        // 🔄 Fallback: try to find any visible list if own list not rendered
+        let listContainer = document.getElementById(`list-${token}`);
+        if (!listContainer) {
+          const fallback = document.querySelector(`[id^="list-"]`);
+          if (fallback) {
+            listContainer = fallback;
+            console.warn("⚠️ Fallback used for list container:", fallback.id);
+          }
         }
-      }
-      if (!listContainer) {
-        console.warn("⚠️ List container not found.");
-        return;
-      }
+        if (!listContainer) {
+          console.warn("⚠️ List container not found.");
+          return;
+        }
     
-      // 🛑 Prevent duplicate temporary item
-      if (listContainer.querySelector(`[data-value="0"]`)) {
-        return;
-      }
+        // 🛑 Prevent duplicate temporary item
+        if (listContainer.querySelector(`[data-value="0"]`)) {
+          return;
+        }
     
-      // ✅ Delegate to a proper function in JSFunctions.js
-      window.startNewItem(token);
+        // ✅ Delegate to a proper function in JSFunctions.js
+        window.startNewItem(token);
     
-      // ✅ Update browser URL to placeholder
-      window.history.pushState({}, "", `/${token}/0`);
+        // ✅ Update browser URL to placeholder
+        window.history.pushState({}, "", `/${token}/0`);
     
-      updateButtonState();
-    });
+        updateButtonState();
+      });
+    }
 
 
 
@@ -1297,10 +1293,12 @@ playModeToggle.forEach(toggle => {
     updateButtonState();
     
     // 🎚 Slider logic
-    slider.addEventListener("input", function () {
-      const trimValue = this.value;
-      textTrimmer(trimValue);
-    });
+    if (slider) {
+      slider.addEventListener("input", function () {
+        const trimValue = this.value;
+        textTrimmer(trimValue);
+      });
+    }
     
     // 🔁 Tab switching
     //The tab swiching logik is in JSEventsHeaderTabs.js
@@ -2149,10 +2147,6 @@ function initStandalonePullToRefresh() {
 
     const text = document.getElementById("textTabContent");
     if (text?.classList.contains("active")) {
-      const t1 = document.getElementById("myTextarea");
-      const t2 = document.getElementById("myTextarea2");
-      if (t1 && getComputedStyle(t1).display !== "none") return t1;
-      if (t2 && getComputedStyle(t2).display !== "none") return t2;
       return text;
     }
     return null;
@@ -2718,12 +2712,6 @@ window.startNewItem = function (token) {
   `;
 
   listContainer.prepend(newItem);
-
-  // 🟢 Clear textareas
-  document.querySelectorAll(".textareas-container textarea").forEach(el => {
-    el.value = "";
-    el.readOnly = false;
-  });
 
   // 🟢 Select placeholder
   selectItem(0, token, listContainer);

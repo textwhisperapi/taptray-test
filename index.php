@@ -40,7 +40,7 @@ sec_session_start();
 $listOwnerUsername = $_SESSION['username'] ?? '';
 
 //Version is now se globally in service-worker.php
-$version = 'v105';
+$version = 'v148';
 
 
 header('Content-Type: text/html; charset=utf-8');
@@ -66,8 +66,7 @@ if ($target && !$surrogate && $inviteToken && preg_match('/^[a-f0-9]{64}$/', $in
 if (
     $target === '' &&
     login_check($mysqli) &&
-    isset($_SESSION['username']) &&
-    $_SESSION['username'] !== 'welcome'
+    isset($_SESSION['username'])
 ) {
     $redirectProfile = $_SESSION['username'];
     $safeCookieUser = preg_replace('/[^A-Za-z0-9_]/', '_', (string)$_SESSION['username']);
@@ -84,8 +83,16 @@ if (
     exit;
 }
 
-
 $loggedIn = login_check($mysqli);
+
+if (
+    !$loggedIn &&
+    strtolower((string)$target) === 'welcome' &&
+    stripos((string)$host, 'taptray.com') !== false
+) {
+    header("Location: /", true, 302);
+    exit;
+}
 
 
 // ✅ Fetch text content dynamically for Open Graph description
@@ -329,6 +336,10 @@ if ($showQuickOnboarding && !empty($_SESSION['user_id']) && $onboardOwnerToken !
         }
     }
 }
+$guestLastProfile = trim((string)($_COOKIE['tw_last_profile'] ?? ''));
+if ($guestLastProfile !== '' && !preg_match('/^[A-Za-z0-9._-]{2,80}$/', $guestLastProfile)) {
+    $guestLastProfile = '';
+}
 $currentProfileUsername = $owner ?: ($target ?: '');
 $currentProfileDisplay = '';
 $currentProfileAvatar = '/default-avatar.png';
@@ -429,7 +440,7 @@ window.DEV_MODE = <?= (
 
 
 <script>
-  window.TW_DEBUG = false;   // turn ON only when profiling
+  window.TW_DEBUG = <?= json_encode((stripos($_SERVER['HTTP_HOST'] ?? '', 'test.taptray.com') !== false)) ?>;
 </script>
   
   
@@ -464,6 +475,19 @@ window.DEV_MODE = <?= (
     TW_LAST = now;
     _warn.call(console, `⏱ ${label}: +${diff} ms (total ${total} ms)`);
   };
+
+  window.addEventListener("error", function (event) {
+    _warn.call(console, "❌ window.error", {
+      message: event.message || "",
+      source: event.filename || "",
+      line: event.lineno || 0,
+      column: event.colno || 0
+    });
+  });
+
+  window.addEventListener("unhandledrejection", function (event) {
+    _warn.call(console, "❌ unhandledrejection", event.reason || event);
+  });
 
   console.time = function(label) {
     _time.call(console, label);
@@ -643,6 +667,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
   class="<?php echo isset($_SESSION['user_id']) ? 'logged-in' : 'not-logged-in'; ?>"
+  data-app-mode="taptray"
+  data-logged-in-user="<?php echo htmlspecialchars($_SESSION['username'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
   data-user-id="<?php echo htmlspecialchars($_SESSION['user_id'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
 
 
@@ -687,6 +713,7 @@ document.addEventListener("DOMContentLoaded", () => {
       </a>
     <?php endif; ?>
 
+    <?php if ($loggedIn): ?>
     <button type="button" class="btn play-mode-btn ms-2" id="playModeButton">Live</button>
 
     <div class="dropdown ms-1" id="playOwnerDropdown" style="display:none;">
@@ -711,6 +738,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <li><div id="playAdminList" class="play-admin-list"></div></li>
       </ul>
     </div>
+    <?php endif; ?>
 
     <!-- 🔹 Title Tab -->
     <button class="nav-link active text-tab flex-grow-1 text-center" data-target="textTab">
@@ -725,11 +753,12 @@ document.addEventListener("DOMContentLoaded", () => {
     <!-- 🔹 Edit toggle + Settings -->
     <div class="d-flex align-items-center gap-3" style="z-index: 1102; position: relative;">
 
-      <!-- ✅ Keep Edit Toggle as-is -->
+      <?php if ($loggedIn): ?>
       <div class="edit-controls form-check form-switch">
         <label class="form-check-label text-light small" style="font-size:14px;" for="editModeToggle">Edit</label>
         <input class="form-check-input edit-mode-toggle" style="margin-left: 0; margin-right:-8px;" type="checkbox" id="editModeToggle">
       </div>
+      <?php endif; ?>
 
       <!-- ⚙️ Settings Dropdown -->
       <div class="dropdown">
@@ -775,20 +804,13 @@ document.addEventListener("DOMContentLoaded", () => {
             
             <li class="dropdown-item">
               <div class="form-check form-switch ms-1">
-                <input class="form-check-input" type="checkbox" id="toggleTextarea2">
-                <label class="form-check-label" for="toggleTextarea2">
-                  <?= $lang['two_columns'] ?? 'Two columns' ?>
-                </label>
-              </div>
-            </li>   
-            <li class="dropdown-item">
-              <div class="form-check form-switch ms-1">
                 <input class="form-check-input" type="checkbox" id="togglePagedPDF">
                 <label class="form-check-label" for="togglePagedPDF">
                   <?= $lang['paged_pdf_view'] ?? 'Paged PDF view' ?>
                 </label>
               </div>
             </li>
+            <?php if ($loggedIn): ?>
             <li>
               <div class="dropdown-item">
                 <div class="edit-controls form-check form-switch ms-1">
@@ -809,6 +831,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
               </div>
             </li>
+            <?php endif; ?>
             <li class="dropdown-item">
               <div class="form-check form-switch ms-1">
                 <input class="form-check-input follow-paging-toggle" type="checkbox" id="toggleFollowPaging">
@@ -1026,78 +1049,6 @@ document.addEventListener("DOMContentLoaded", () => {
         <!--</div>  -->
         
     
-      <div id="textToolbar" class="top-edit-toolbar" style="display: none;">
-    
-        <!-- 🔄 Refresh current text + annotations -->
-        <button id="textRefreshButton"
-                class="edit-btn"
-                type="button"
-                title="<?= $lang['refresh'] ?? 'Refresh' ?>">
-          <i data-lucide="refresh-ccw"></i>
-        </button>
-    
-        <!-- ➕ New text item -->
-        <button id="newButton"
-                class="edit-btn new-btn"
-                type="button"
-                title="<?= $lang['new'] ?? 'New' ?>">
-          <i data-lucide="file-plus"></i>
-        </button>
-    
-        <!-- 💾 Save -->
-        <button id="saveButton"
-                class="edit-btn save-btn"
-                type="button"
-                title="<?= $lang['save'] ?? 'Save' ?>"
-                disabled>
-          <i data-lucide="save"></i>
-        </button>
-    
-        <!-- 🗑 Delete -->
-        <button id="deleteButton"
-                class="edit-btn delete-btn"
-                type="button"
-                title="<?= $lang['delete'] ?? 'Delete' ?>"
-                disabled>
-          <i data-lucide="trash-2"></i>
-        </button>
-    
-        <!-- 💬 Toggle comment palette -->
-        <button id="toggleCommentPalette"
-                class="edit-btn comment-btn"
-                type="button"
-                title="<?= $lang['comments'] ?? 'Comment tools' ?>">
-          <i data-lucide="message-square"></i>
-        </button>
-    
-        <!-- 👁 Show / hide comment bubbles -->
-        <button id="toggleCommentVisibilityBtn"
-                class="edit-btn"
-                type="button"
-                title="<?= $lang['toggle_comments'] ?? 'Show / hide comments' ?>">
-          <i data-lucide="eye"></i>
-        </button>
-    
-        <!-- 📄 Export PDF -->
-        <button id="exportPdfButton"
-                class="edit-btn"
-                type="button"
-                title="<?= $lang['export_pdf'] ?? 'Export PDF' ?>">
-          <i data-lucide="file-down"></i>
-        </button>
-
-        <!-- 🖨 Print text -->
-        <button id="printTextButton"
-                class="edit-btn"
-                type="button"
-                title="<?= $lang['print'] ?? 'Print' ?>">
-          <i data-lucide="printer"></i>
-        </button>
-    
-      </div>
-
-        
-        
         <!-- TapTray item details workspace -->
 
         <!-- Hidden annotation action hooks (temporary) -->
@@ -1114,86 +1065,20 @@ document.addEventListener("DOMContentLoaded", () => {
     
         <!-- 🚀 Text Content (Default View) -->
         <div id="textTabContent" class="main-tab-content active">
-          <!--<div class="slider-container">-->
-          <!--  <label for="b"><?= $lang['trim'] ?? 'Trim' ?></label>-->
-          <!--  <input onchange="textTrimmer(this.value)" type="range" id="b" value="0" min="0" max="8">-->
-          <!--</div>-->
-            <div class="slider-container">
-            
-                <div class="slider-left flex-grow-1">
-                    <label for="b" class="me-2"><?= $lang['trim'] ?? 'Trim' ?></label>
-                    <input onchange="textTrimmer(this.value)" type="range" id="b" value="0" min="0" max="8">
-                </div>
-            
-                <div class="cloak-controls form-check form-switch" 
-                     style="display:flex; align-items:center; gap:2px;">
-                
-                    <label class="me-2" for="toggleCloak" style="margin:0;">
-                        <?= $lang['cloak'] ?? 'Cloak' ?>
-                    </label>
-                
-                    <input class="form-check-input"
-                           style="margin-left:0; margin-right:4px; padding-left:1.5em;"
-                           type="checkbox"
-                           id="toggleCloak">
-                
-                    <img src="/icons/cloak-red-24.svg"
-                         alt="cloak icon"
-                         class="cloak-icon"
-                         style="width:24px; height:24px; object-fit:contain; margin-right:8px">
-                </div>
-
-            </div>
-                
-        <!-- Cloak blur slider row — hidden until cloak enabled -->
-        <!--<div id="cloakBlurRow" class="mt-2" style="display:none;">-->
-        <!--    <label for="cloakBlur" class="me-2"><?= $lang['blur'] ?? 'Blur' ?></label>-->
-        <!--    <input type="range" id="cloakBlur" min="0" max="12" value="0" />-->
-        <!--</div> -->
-
-
-                      
-        
-<div class="textareas-container">
-
-  <!-- 📄 Read-only mirror -->
-  <div id="myTextarea2" class="readonly-textarea" contenteditable="false" style="display:none;">
-    <?php
-      if (!empty($surrogate) && !empty($textContent)) {
-        // echo $textContent;
-      }
-    ?>
+<div class="tt-item-details">
+  <div class="tt-item-shell">
+    <div class="tt-item-main">
+      <div class="tt-item-header">
+        <div>
+          <div class="tt-item-kicker">TapTray</div>
+          <h2>Legacy text area removed</h2>
+        </div>
+      </div>
+      <div class="taptray-tree-item-description">
+        Select a menu item to open the menu design view. The old dual-textarea editor is no longer part of this screen.
+      </div>
+    </div>
   </div>
-
-  <div id="textPaneResizer" class="text-pane-resizer" aria-label="Resize panes" role="separator"></div>
-
-  <!-- ✏️ Editable textarea -->
-  <div id="myTextarea"
-       class="edit-textarea"
-       contenteditable="true"
-       placeholder="Subject: (The title of your list item 😊)
-
-Body: (Write anything you like)
-
-#hashtag → Prevents the trimming of words.
-
-Special Tips: 📎
-- Paste a PDF or Soundslice link to activate footer buttons.
-- On desktop, you can drag and drop a PDF into the PDF tab.
-- On mobile, use the item menu → “Add PDF” to upload from your device.
-
-💡 Emoji Shortcut:
-- Windows: Press Windows + . (period)
-- Mac: Press Control + Command + Space
-">
-    <?php
-      if (!empty($surrogate) && !empty($textContent)) {
-        // echo $textContent;
-      }
-    ?>
-  </div>
-
-  <div id="textMetaFooter" class="text-meta-footer" aria-live="polite"></div>
 </div>
 
         </div>
@@ -1208,10 +1093,10 @@ Special Tips: 📎
               <div class="tt-item-main">
                 <div class="tt-item-header">
                   <div>
-                    <div class="tt-item-kicker">Menu item details</div>
+                    <div id="ttItemKicker" class="tt-item-kicker">Menu item details</div>
                     <h2 id="ttItemTitle">Select an item</h2>
                   </div>
-                  <div class="tt-item-price-wrap">
+                  <div id="ttItemPriceWrap" class="tt-item-price-wrap">
                     <label for="ttItemPrice">Price</label>
                     <input id="ttItemPrice" class="tt-input" type="text" placeholder="e.g. 3490 ISK">
                   </div>
@@ -1225,7 +1110,7 @@ Special Tips: 📎
                     <label for="ttItemDetailedDescription">Detailed description</label>
                     <textarea id="ttItemDetailedDescription" class="tt-textarea" rows="5" placeholder="Expanded customer-facing description"></textarea>
                   </div>
-                  <div class="tt-field">
+                  <div id="ttItemImageField" class="tt-field">
                     <label for="ttItemImage">Food image URL</label>
                     <input id="ttItemImage" class="tt-input" type="url" placeholder="https://example.com/dish.jpg">
                   </div>
@@ -1233,12 +1118,12 @@ Special Tips: 📎
                     <label for="ttItemAllergens">Allergens</label>
                     <input id="ttItemAllergens" class="tt-input" type="text" placeholder="e.g. dairy, nuts, shellfish">
                   </div>
-                  <div class="tt-field tt-toggle-row">
+                  <div id="ttItemToggleRow" class="tt-field tt-toggle-row">
                     <label class="tt-check"><input id="ttItemAvailable" type="checkbox" checked> Available now</label>
                     <label class="tt-check"><input id="ttItemFeatured" type="checkbox"> Featured item</label>
                   </div>
                 </div>
-                <div class="tt-item-notes">
+                <div id="ttItemNotesBlock" class="tt-item-notes">
                   <div class="tt-item-notes-label">Internal recipe / prep notes</div>
                   <textarea id="ttItemNotesInput" class="tt-textarea tt-item-notes-input" rows="10" placeholder="Kitchen prep, recipe details, plating notes"></textarea>
                 </div>
@@ -1487,12 +1372,6 @@ if (!$vapidKey) {
     } catch (_err) {}
   }
   removeZoomMathPanel();
-  if (typeof MutationObserver === "undefined") return;
-  const root = document.documentElement || document.body;
-  if (!root) return;
-  const obs = new MutationObserver(removeZoomMathPanel);
-  obs.observe(root, { childList: true, subtree: true });
-  setTimeout(() => obs.disconnect(), 30000);
 })();
 </script>
 
@@ -1527,6 +1406,12 @@ if (!$vapidKey) {
 <script>
 
 window.taptrayRefreshItemDetails = function taptrayRefreshItemDetails() {
+  const shellEl = document.getElementById("taptrayItemDetails");
+  const kickerEl = document.getElementById("ttItemKicker");
+  const priceWrapEl = document.getElementById("ttItemPriceWrap");
+  const imageFieldEl = document.getElementById("ttItemImageField");
+  const toggleRowEl = document.getElementById("ttItemToggleRow");
+  const notesBlockEl = document.getElementById("ttItemNotesBlock");
   const titleEl = document.getElementById("ttItemTitle");
   const notesEl = document.getElementById("ttItemNotesInput");
   const shortDescEl = document.getElementById("ttItemShortDescription");
@@ -1535,10 +1420,9 @@ window.taptrayRefreshItemDetails = function taptrayRefreshItemDetails() {
   const imageEl = document.getElementById("ttItemImage");
   const allergensEl = document.getElementById("ttItemAllergens");
   const mediaEl = document.getElementById("ttItemMedia");
-  if (!titleEl || !notesEl || !shortDescEl || !detailedDescEl || !priceEl || !imageEl || !allergensEl || !mediaEl) return;
+  if (!shellEl || !kickerEl || !priceWrapEl || !imageFieldEl || !toggleRowEl || !notesBlockEl || !titleEl || !notesEl || !shortDescEl || !detailedDescEl || !priceEl || !imageEl || !allergensEl || !mediaEl) return;
 
-  const editor = document.getElementById("myTextarea");
-  const rawText = String(window._T2_RAWTEXT || editor?.innerText || "").trim();
+  const rawText = String(window._T2_RAWTEXT || "").trim();
   const rawTitle = document.getElementById("selectedItemTitle")?.textContent?.trim() || "";
   const lines = rawText.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   const title = lines[0] || rawTitle || "Select an item";
@@ -1546,6 +1430,7 @@ window.taptrayRefreshItemDetails = function taptrayRefreshItemDetails() {
 
   let shortDescription = "";
   let detailedDescription = "";
+  let notesBody = "";
   let price = "";
   let imageUrl = "";
   let allergens = "";
@@ -1587,6 +1472,20 @@ window.taptrayRefreshItemDetails = function taptrayRefreshItemDetails() {
   imageEl.value = imageUrl;
   allergensEl.value = allergens;
 
+  const canEdit = !!window.canEditCurrentSurrogate;
+  shellEl.classList.toggle("is-preview-only", !canEdit);
+  kickerEl.textContent = canEdit ? "Menu item details" : "Menu item preview";
+  priceWrapEl.hidden = !canEdit;
+  imageFieldEl.hidden = !canEdit;
+  toggleRowEl.hidden = !canEdit;
+  notesBlockEl.hidden = !canEdit;
+  shortDescEl.readOnly = !canEdit;
+  detailedDescEl.readOnly = !canEdit;
+  priceEl.readOnly = !canEdit;
+  imageEl.readOnly = !canEdit;
+  allergensEl.readOnly = !canEdit;
+  notesEl.readOnly = !canEdit;
+
   if (imageUrl) {
     mediaEl.innerHTML = `<img src="${imageUrl.replace(/"/g, '&quot;')}" alt="${title.replace(/"/g, '&quot;')}" style="width:100%;height:100%;object-fit:cover;display:block;">`;
   } else {
@@ -1595,9 +1494,6 @@ window.taptrayRefreshItemDetails = function taptrayRefreshItemDetails() {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-  const editor = document.getElementById("myTextarea");
-  if (!editor) return;
-  editor.addEventListener("input", () => window.taptrayRefreshItemDetails?.());
   window.taptrayRefreshItemDetails?.();
 });
 
@@ -1610,6 +1506,7 @@ taptrayDetailStyle.textContent = `
   .tt-item-media.is-uploading::after { content: "Uploading image..."; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,248,235,0.88); color: #8a5c43; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
   .tt-item-media-placeholder { height: 100%; min-height: 320px; display: flex; align-items: center; justify-content: center; color: #8a5c43; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
   .tt-item-main { padding: 20px 22px; border-radius: 24px; background: rgba(255,255,255,0.92); border: 1px solid rgba(20, 17, 12, 0.1); box-shadow: 0 18px 40px rgba(20, 17, 12, 0.08); }
+  .tt-item-details.is-preview-only .tt-item-main { max-width: 720px; }
   .tt-item-header { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
   .tt-item-kicker { font-size: 12px; font-weight: 700; color: #b0421d; letter-spacing: 0.08em; text-transform: uppercase; }
   #ttItemTitle { margin: 8px 0 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.08; font-family: Georgia, serif; }
@@ -1623,6 +1520,8 @@ taptrayDetailStyle.textContent = `
   .tt-field label { font-size: 13px; font-weight: 700; color: #5a5147; }
   .tt-input, .tt-textarea { width: 100%; border: 1px solid rgba(20, 17, 12, 0.12); border-radius: 14px; padding: 12px 14px; font: inherit; background: #fff; }
   .tt-textarea { resize: vertical; min-height: 116px; }
+  .tt-item-details.is-preview-only .tt-input[readonly],
+  .tt-item-details.is-preview-only .tt-textarea[readonly] { background: rgba(249, 244, 236, 0.85); color: #3d3027; border-color: rgba(20, 17, 12, 0.08); box-shadow: none; }
   .tt-toggle-row { justify-content: center; gap: 14px; padding: 10px 0 0; }
   .tt-check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
   .tt-item-notes { margin-top: 18px; }
@@ -1645,7 +1544,7 @@ taptrayDetailStyle.textContent = `
   .item-price-chip { display: inline-flex; align-self: flex-start; margin-top: 1px; padding: 3px 10px; border-radius: 999px; background: color-mix(in srgb, var(--skin-accent) 10%, var(--skin-surface)); color: var(--skin-accent); font-size: 12px; line-height: 1.1; font-weight: 800; border: 1px solid color-mix(in srgb, var(--skin-accent) 14%, var(--skin-border)); white-space: nowrap; }
   .item-price-chip.is-placeholder { background: var(--skin-surface-2); color: var(--skin-muted); border-color: var(--skin-border); font-weight: 600; }
   .taptray-menu-copy .item-summary,
-  .taptray-menu-row .item-summary { font-size: 7px !important; line-height: 1.15; color: var(--skin-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 100%; }
+  .taptray-menu-row .item-summary { font-size: 10px !important; line-height: 1.2; color: var(--skin-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 100%; }
   .item-summary.is-placeholder { color: var(--skin-muted); font-style: italic; }
   .item-action-square { display: grid; grid-template-rows: auto auto; gap: 5px; align-items: center; justify-items: stretch; width: 72px; }
   .item-square-main { position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; }
@@ -1701,7 +1600,7 @@ taptrayDetailStyle.textContent = `
   .taptray-order-history[open] .taptray-order-history-title::before { content: "▾"; }
   .taptray-order-history-group { margin-top: 8px; }
   .taptray-order-history-meta { margin: 0 0 6px; font-size: 11px; font-weight: 700; color: var(--skin-muted); }
-  @media (max-width: 720px) { .list-sub-item { grid-template-columns: minmax(0, 1fr) auto; min-height: 76px; } .taptray-menu-row { grid-template-columns: 52px minmax(0, 1fr) 84px; gap: 8px; } .item-title { font-size: 15px; } .taptray-menu-copy .item-summary, .taptray-menu-row .item-summary { font-size: 6px !important; } .item-action-square { width: 84px; } .item-square-main { width: 50px; height: 50px; } .item-qty-badge { min-width: 14px; height: 14px; font-size: 8px; top: -4px; left: -4px; } .item-square-action { min-width: 0; width: 100%; padding: 4px 6px; font-size: 9px; white-space: nowrap; } .item-thumb, .item-action-square .item-thumb, .item-media-rail .item-thumb { width: 50px; height: 50px; } .taptray-order-btn { padding: 4px 6px; font-size: 9px; } .taptray-order-title { font-size: 13px; } .taptray-order-meta { font-size: 11px; } .item-menu-wrapper { grid-column: 2; grid-row: 1; } .taptray-tree-item-body { grid-template-columns: 92px minmax(0, 1fr); gap: 10px; } .taptray-tree-item-media { width: 92px; } .taptray-tree-item-media img { max-height: 184px; } .taptray-tree-item-title { font-size: 18px; } }
+  @media (max-width: 720px) { .list-sub-item { grid-template-columns: minmax(0, 1fr) auto; min-height: 76px; } .taptray-menu-row { grid-template-columns: 52px minmax(0, 1fr) 84px; gap: 8px; } .item-title { font-size: 15px; } .taptray-menu-copy .item-summary, .taptray-menu-row .item-summary { font-size: 9px !important; } .item-action-square { width: 84px; } .item-square-main { width: 50px; height: 50px; } .item-qty-badge { min-width: 14px; height: 14px; font-size: 8px; top: -4px; left: -4px; } .item-square-action { min-width: 0; width: 100%; padding: 4px 6px; font-size: 9px; white-space: nowrap; } .item-thumb, .item-action-square .item-thumb, .item-media-rail .item-thumb { width: 50px; height: 50px; } .taptray-order-btn { padding: 4px 6px; font-size: 9px; } .taptray-order-title { font-size: 13px; } .taptray-order-meta { font-size: 11px; } .item-menu-wrapper { grid-column: 2; grid-row: 1; } .taptray-tree-item-body { grid-template-columns: 92px minmax(0, 1fr); gap: 10px; } .taptray-tree-item-media { width: 92px; } .taptray-tree-item-media img { max-height: 184px; } .taptray-tree-item-title { font-size: 18px; } }
   @media (max-width: 980px) { .tt-item-shell { grid-template-columns: 1fr; } }
   @media (max-width: 720px) { .tt-item-details { padding: 10px; } .tt-item-main { padding: 16px; } .tt-item-grid { grid-template-columns: 1fr; } .tt-item-header { flex-direction: column; } .tt-item-price-wrap { width: 100%; } }
 `;
@@ -1710,25 +1609,6 @@ document.head.appendChild(taptrayDetailStyle);
 // to do: Move those scripts to script funtion
 
 function applyFontSize(size) {
-  //document.body.style.fontSize = size + 'px';
-
-  // ✅ Explicitly scale ONLY the main textareas
-  const mainTextareas = [
-    document.getElementById('myTextarea'),
-    document.getElementById('myTextarea2')
-  ];
-
-//   mainTextareas.forEach(el => {
-//     if (el) el.style.fontSize = size + 'px';
-//   });
-
-    mainTextareas.forEach(el => {
-      if (!el) return;
-      el.style.setProperty('font-size', size + 'px', 'important');
-      el.style.lineHeight = Math.round(size * 1.4) + 'px'; // smoother spacing
-    });
-
-
   localStorage.setItem('textwhisperFontSize', size);
 }
 
@@ -1752,23 +1632,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-  const toggle = document.getElementById('toggleTextarea2');
-  const box1   = document.getElementById('myTextarea2'); // first textarea
-  const saved  = localStorage.getItem('twoColumns');
-
-  // Restore state (default true = show both)
-  if (saved !== 'true') {
-    toggle.checked = false;
-    if (box1) box1.style.display = 'none';
-  }
-
-  // Listen for toggle
-  toggle?.addEventListener('change', (e) => {
-    if (box1) box1.style.display = e.target.checked ? '' : 'none';
-    localStorage.setItem('twoColumns', e.target.checked);
-  });
-
-
   // === Paged PDF toggle (added, separate) ===
   const pagedToggle = document.getElementById('togglePagedPDF');
   const savedPaged  = localStorage.getItem('pagedPdfView') === 'true';
@@ -1808,76 +1671,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-  const container = document.querySelector(".textareas-container");
-  const leftPane = document.getElementById("myTextarea2");
-  const rightPane = document.getElementById("myTextarea");
-  const handle = document.getElementById("textPaneResizer");
-  const toggle = document.getElementById("toggleTextarea2");
-  if (!container || !leftPane || !rightPane || !handle) return;
-
-  const KEY = "textPaneSplit";
-  const min = 20;
-  const max = 80;
-  const desktopQuery = window.matchMedia("(min-width: 900px)");
-  let dragging = false;
-
-  const applySplit = (pct) => {
-    const safe = Math.max(min, Math.min(max, Math.round(pct)));
-    leftPane.style.flex = `0 0 ${safe}%`;
-    rightPane.style.flex = `1 1 ${100 - safe}%`;
-    localStorage.setItem(KEY, String(safe));
-  };
-
-  const syncHandleVisibility = () => {
-    const leftVisible = getComputedStyle(leftPane).display !== "none";
-    handle.style.display = (leftVisible && desktopQuery.matches) ? "block" : "none";
-    if (!leftVisible) {
-      leftPane.style.flex = "";
-      rightPane.style.flex = "";
-    }
-  };
-
-  const saved = Number(localStorage.getItem(KEY));
-  if (!Number.isNaN(saved)) applySplit(saved);
-  syncHandleVisibility();
-
-  const onMove = (clientX) => {
-    if (!dragging) return;
-    const rect = container.getBoundingClientRect();
-    const pct = ((clientX - rect.left) / rect.width) * 100;
-    applySplit(pct);
-  };
-
-  handle.addEventListener("mousedown", (e) => {
-    dragging = true;
-    document.body.classList.add("is-resizing");
-    e.preventDefault();
-  });
-
-  window.addEventListener("mousemove", (e) => onMove(e.clientX));
-  window.addEventListener("mouseup", () => {
-    dragging = false;
-    document.body.classList.remove("is-resizing");
-  });
-
-  handle.addEventListener("touchstart", () => {
-    dragging = true;
-    document.body.classList.add("is-resizing");
-  }, { passive: true });
-
-  window.addEventListener("touchmove", (e) => {
-    if (!dragging) return;
-    const t = e.touches && e.touches[0];
-    if (t) onMove(t.clientX);
-  }, { passive: true });
-
-  window.addEventListener("touchend", () => {
-    dragging = false;
-    document.body.classList.remove("is-resizing");
-  });
-
-  toggle?.addEventListener("change", () => requestAnimationFrame(syncHandleVisibility));
-  window.addEventListener("resize", syncHandleVisibility);
+  localStorage.removeItem("twoColumns");
+  localStorage.removeItem("textPaneSplit");
 });
 </script>
 
@@ -2205,22 +2000,6 @@ function scaleMusicPanel(size) {
 
 
 
-// ✅ Global observer to catch when selector is added dynamically
-const observer = new MutationObserver(() => {
-  const size = localStorage.getItem('envZoom') || 16;
-  scaleChatSelectors(size);
-});
-
-observer.observe(document.body, { childList: true, subtree: true });
-
-// 🎵 Global observer to scale music panels when they appear
-const musicObserver = new MutationObserver(() => {
-  const size = localStorage.getItem('envZoom') || 16;
-  scaleMusicPanel(size);
-});
-
-musicObserver.observe(document.body, { childList: true, subtree: true });
-
 document.addEventListener("DOMContentLoaded", () => {
   const slider = document.getElementById('envSizeSlider');
   if (!slider) return;
@@ -2232,21 +2011,13 @@ document.addEventListener("DOMContentLoaded", () => {
   } else {
     applyEnvZoom(slider.value);
   }
+  scaleChatSelectors(saved || slider.value);
+  scaleMusicPanel(saved || slider.value);
 
   // Listen for user changes
   slider.addEventListener('input', e => {
     applyEnvZoom(e.target.value);
   });
-
-  // Reapply zoom when sidebar content changes
-  const sidebar = document.getElementById('sidebarContainer');
-  if (sidebar) {
-    const observer = new MutationObserver(() => {
-      const current = localStorage.getItem('envZoom') || slider.value;
-      applyEnvZoom(current);
-    });
-    observer.observe(sidebar, { childList: true, subtree: true });
-  }
 
   // Keep music panel aligned on viewport changes
   window.addEventListener("resize", () => {
@@ -2685,13 +2456,10 @@ document.addEventListener("DOMContentLoaded", () => {
 <footer>
   <div id="footerMenu" class="mobile-footer-menu">
     <button data-target="sidebar" class="footer-tab-btn" title="Sidebar">
-      <i data-lucide="layout-dashboard"></i>
-    </button>
-    <button data-target="textTab" class="footer-tab-btn nav-link active" title="Text">
-      <i data-lucide="file-text"></i>
-    </button>
-    <button data-target="pdfTab" class="footer-tab-btn nav-link" title="Item details">
       <i data-lucide="utensils-crossed"></i>
+    </button>
+    <button data-target="reservationsTab" class="footer-tab-btn" title="Reservation planner">
+      <i data-lucide="calendar-clock"></i>
     </button>
     <button data-target="chatTab" class="footer-tab-btn" title="Chat">
       <div style="position: relative; display: inline-block;">
@@ -2699,15 +2467,17 @@ document.addEventListener("DOMContentLoaded", () => {
         <span id="chatUnreadBadge" class="footer-chat-badge zero" style="display:none;">0</span>
       </div>
     </button>
+    <?php if (isset($_SESSION['user_id'])): ?>
+    <button data-target="pdfTab" class="footer-tab-btn nav-link" title="Item details">
+      <i data-lucide="cooking-pot"></i>
+    </button>
+    <button data-target="menuOrdersTab" class="footer-tab-btn" title="Menu orders">
+      <i data-lucide="chef-hat"></i>
+    </button>
     <button data-target="calendarTab" class="footer-tab-btn" title="Event planner">
-      <i data-lucide="calendar-clock"></i>
+      <i data-lucide="calendar-days"></i>
     </button>
-    <button data-target="menuPreviewTab" class="footer-tab-btn" title="Menu preview">
-      <i data-lucide="smartphone"></i>
-    </button>
-    <button data-target="importTab" class="footer-tab-btn" title="File manager">
-      <i data-lucide="folder-down"></i>
-    </button>    
+    <?php endif; ?>
     <button data-target="fullscreen" class="footer-tab-btn" title="Fullscreen">
       <i data-lucide="maximize-2"></i>
     </button>

@@ -402,7 +402,7 @@ window.showHomeTab = function showHomeTab(url) {
     </div>
     <iframe
       src="${url}"
-      style="flex:1 1 auto;min-height:0;width:100%;border:none;background:#fff;"
+      style="flex:1 1 auto;min-height:0;height:100%;width:100%;border:none;background:#fff;"
     ></iframe>
   `;
 
@@ -589,8 +589,8 @@ function removeCurrentFromList(surrogate) {
     if (document.querySelectorAll(`.list-sub-item[data-value='${surrogate}']`).length === 0) {
         document.querySelectorAll(".textareas-container textarea").forEach(el => el.value = "");
         // Update URL to just user or default token if you have a way
-        const currentToken = getEffectiveToken ? getEffectiveToken() : 'welcome';
-        window.history.pushState({}, "", `/${currentToken}`);
+        const currentToken = getEffectiveToken ? getEffectiveToken() : '';
+        window.history.pushState({}, "", currentToken ? `/${currentToken}` : "/");
     }
 
     // Invalidate import similarity cache so external trees stop marking deleted items as existing.
@@ -1909,6 +1909,10 @@ function showNewListInput(container, surrogate, ownerUsername = "") {
 
 
 function initListSorting() {
+  const isTapTrayShell = document.body?.dataset?.appMode === "taptray";
+  const isLoggedIn = document.body.classList.contains("logged-in");
+  if (isTapTrayShell && !isLoggedIn) return;
+
   // 🟢 LIST-LEVEL SORT (move entire lists)
   document.querySelectorAll(".group-contents, .list-contents").forEach(wrapper => {
     if (wrapper.dataset.sortableBound) return;
@@ -2960,7 +2964,6 @@ function getEffectiveToken() {
       if (lastOpenedOwner && isLikelyToken(lastOpenedOwner)) return lastOpenedOwner;
       return sessionUser;
     }
-    // Logged out/offline: use remembered profile when available.
     if (!navigator.onLine && lastOpenedOwner && isLikelyToken(lastOpenedOwner)) {
       return lastOpenedOwner;
     }
@@ -4087,7 +4090,7 @@ function renderSingleListItemHTML(item, token, index = null) {
          data-public-description="${escapeHtml(shortDescriptionValue)}"
          data-image-url="${escapeHtml(imageUrl)}"
          data-allergens="${escapeHtml(String(item.allergens || "").trim())}"${orderIndexAttr}${titleAttr}>
-      <div class="select-item taptray-menu-row" style="flex:1;">
+      <div class="select-item taptray-menu-row" style="flex:1;" onclick="toggleTreeItemExpand(this, ${surrogate}, '${escapeHtml(token)}'); event.stopPropagation();">
         <div class="item-media-rail">
           <div class="item-square-main">
             ${mediaHtml}
@@ -4188,7 +4191,7 @@ function renderListItems(container, token, items) {
                      data-order-index="${index + 1}"
                      data-title="${escapeHtml(title)}">
 
-                    <div class="select-item taptray-menu-row" style="flex:1;">
+                    <div class="select-item taptray-menu-row" style="flex:1;" onclick="toggleTreeItemExpand(this, ${surrogate}, '${escapeHtml(token)}'); event.stopPropagation();">
                       <div class="item-media-rail">
                         <div class="item-square-main">
                           ${mediaHtml}
@@ -4522,7 +4525,9 @@ logStep("Started loading lists");
 
     initListSorting?.();
     bindSidebarSearch();
-    applyDeepLink();
+    if (window.currentSurrogate && String(window.currentSurrogate) !== "0") {
+      applyDeepLink();
+    }
   };
 
   listManager.innerHTML = "<div class='text-muted p-2'>Loading lists…</div>";
@@ -4599,10 +4604,13 @@ logStep("Started loading lists");
 
     await renderLists(data);
 
-    // Best-effort background warm cache so switching groups offline keeps working.
-    setTimeout(() => {
-      warmListItemsCacheForOwnerData(data);
-    }, 60);
+    const isTapTrayShell = document.body?.dataset?.appMode === "taptray";
+    const isLoggedIn = document.body.classList.contains("logged-in");
+    if (!isTapTrayShell || isLoggedIn) {
+      setTimeout(() => {
+        warmListItemsCacheForOwnerData(data);
+      }, 60);
+    }
   } catch (err) {
     console.error("❌ loadUserContentLists failed:", err);
     try {
@@ -4654,7 +4662,8 @@ logStep("Started loading lists");
   // HOME VIEW — only when NO surrogate is selected
   if (!window.currentSurrogate || window.currentSurrogate === "0") {
     const owner = window.currentOwner;
-    if (owner) {
+    const isTapTrayShell = document.body?.dataset?.appMode === "taptray";
+    if (owner && !isTapTrayShell) {
       const isLoggedIn = !!window.SESSION_USERNAME;
       const ownerToken = window.currentOwnerToken || window.currentListToken || "";
       const homeUrl = ownerToken
@@ -5892,6 +5901,7 @@ let currentUploadXHR = null; // keep reference to active upload
 
     const sidebar = document.getElementById("sidebarContainer");
     if (!sidebar) return;
+    if (document.body?.dataset?.appMode === "taptray") return;
     let t = null;
     const observer = new MutationObserver(() => {
       clearTimeout(t);

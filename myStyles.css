@@ -2130,7 +2130,7 @@ body.dark-mode #myTextarea2 {
 
 #pdfTabContent iframe {
     width: 100%;
-    height: auto;
+    height: 100%;
     min-height: 0;
     border: none;
     flex: 1 1 auto;
@@ -3963,25 +3963,33 @@ body.app-fullscreen .app-fullscreen-exit-btn {
   }
 
   #sidebarContainer {
-    position: relative !important;
-    left: 0 !important;
-    top: 0 !important;
+    position: fixed !important;
+    left: -100% !important;
+    top: var(--navbar-height) !important;
     width: 100% !important;
     height: var(--app-mobile-main-height) !important;
     max-height: var(--app-mobile-main-height) !important;
     min-height: var(--app-mobile-main-height) !important;
     border-right: 0 !important;
-    z-index: 1 !important;
-    transition: none !important;
+    z-index: 1100 !important;
+    transition: left 0.25s ease !important;
   }
 
   #sidebarContainer.show {
     left: 0 !important;
+    z-index: 9999 !important;
   }
 
-  #sidebarDragHandle,
-  #mainContentWrapper {
+  #sidebarDragHandle {
     display: none !important;
+  }
+
+  #mainContentWrapper {
+    display: flex !important;
+    width: 100% !important;
+    height: var(--app-mobile-main-height) !important;
+    max-height: var(--app-mobile-main-height) !important;
+    min-height: var(--app-mobile-main-height) !important;
   }
 
   .sidebar,

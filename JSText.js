@@ -988,18 +988,15 @@ function twInitPlayOwnerUIBindings() {
   });
 }
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => {
-    twStartPlaySyncPolling();
-    twStartPlayOwnerLoop();
-    twInitPlayOwnerUIBindings();
-    if (twIsPlayModeEnabled()) {
-      twHandlePlayModeEnabledInternal();
-    } else {
-      twSetPlayOwnerUI(null);
-    }
-  });
-} else {
+function twBootPlayUiForShell() {
+  const isLoggedIn = document.body.classList.contains("logged-in");
+  const isTapTrayShell = document.body?.dataset?.appMode === "taptray";
+  if (!isLoggedIn && isTapTrayShell) {
+    window.twSetPlayMode?.(false);
+    twSetPlayOwnerUI(null);
+    return;
+  }
+
   twStartPlaySyncPolling();
   twStartPlayOwnerLoop();
   twInitPlayOwnerUIBindings();
@@ -1008,6 +1005,14 @@ if (document.readyState === "loading") {
   } else {
     twSetPlayOwnerUI(null);
   }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    twBootPlayUiForShell();
+  });
+} else {
+  twBootPlayUiForShell();
 }
 
 
@@ -1174,23 +1179,12 @@ function getTextYYYY(surrogate) {
 
 
 function getText(surrogate) {
-  const area = document.getElementById("myTextarea");
-  if (area) {
-    area.querySelectorAll("span.hl, .comment-hint").forEach(el => {
-      el.outerHTML = el.innerHTML;
-    });
-  }
-
   const metaEl = document.getElementById("textMetaFooter");
-
-  // MOVE THESE OUTSIDE so updateUIwithHTML() can see them
-  const t1 = document.getElementById("myTextarea");
-  const t2 = document.getElementById("myTextarea2");
 
   return new Promise(async (resolve, reject) => {
     if (!surrogate || surrogate === "0") {
-      if (t1) t1.innerHTML = "";
-      if (t2) t2.innerHTML = "";
+      window._T2_RAWHTML = "";
+      window._T2_RAWTEXT = "";
       if (metaEl) {
         metaEl.textContent = "";
         metaEl.style.display = "none";
@@ -1284,13 +1278,8 @@ function getText(surrogate) {
   // Helper function inside getText()
   // --------------------------------------------------
   function updateUIwithHTML(html) {
-    if (t1) t1.innerHTML = html;
-    if (t2) t2.innerHTML = html;
-
     window._T2_RAWHTML = html;
     window._T2_RAWTEXT = htmlToPlainText(html);
-
-    requestAnimationFrame(() => textTrimmer?.());
   }
 }
 
@@ -1449,14 +1438,10 @@ function updateLinkDataXXXX(updatedText, context = "link-update") {
       const responseSurrogate = parseInt(body, 10);
 
       if (responseSurrogate > 0) {
-        const t1 = document.getElementById("myTextarea");
-        const t2 = document.getElementById("myTextarea2");
-
         // 🔹 Treat updatedText as HTML; normalize line breaks
         const html = updatedText.replace(/\r?\n/g, "<br>");
-
-        if (t1) t1.innerHTML = html;
-        if (t2) t2.innerHTML = html;
+        window._T2_RAWHTML = html;
+        window._T2_RAWTEXT = htmlToPlainText(html);
 
         if (context !== "delete") showFlashMessage?.("✅ Links updated");
         resolve(true);
@@ -1543,12 +1528,8 @@ function updateLinkData(updatedText, context = "link-update") {
       const responseSurrogate = parseInt(body, 10);
 
       if (responseSurrogate > 0) {
-        const t1 = document.getElementById("myTextarea");
-        const t2 = document.getElementById("myTextarea2");
-
-        // 🔹 Use sanitized HTML in both panes
-        if (t1) t1.innerHTML = html;
-        if (t2) t2.innerHTML = html;
+        window._T2_RAWHTML = html;
+        window._T2_RAWTEXT = htmlToPlainText(html);
 
         if (context !== "delete") showFlashMessage?.("✅ Links updated");
         resolve(true);
@@ -1592,7 +1573,40 @@ function insertData(force = false) {
     
 
     const editable = document.getElementById("myTextarea");
-    if (!editable) return resolve(false);
+    if (!editable) {
+      const html = sanitizeForSave(String(window._T2_RAWHTML || "").trim());
+      if (!html) return resolve(false);
+
+      const dataname = extractTitleFromHTML(html);
+      const xhr = new XMLHttpRequest();
+      xhr.onreadystatechange = async function () {
+        if (xhr.readyState !== 4) return;
+
+        const body = xhr.status === 200 ? (xhr.responseText || "").trim() : "0";
+        const responseSurrogate = parseInt(body, 10);
+
+        if (responseSurrogate > 0) {
+          window.currentSurrogate = responseSurrogate;
+          window.currentListToken = token;
+          window.history.pushState({}, "", `/${token}/${responseSurrogate}`);
+          resolve(true);
+        } else {
+          showFlashMessage?.("🚫 Save failed — no rights or server error");
+          resolve(false);
+        }
+      };
+
+      xhr.open("POST", "/datainsert_to_list.php", true);
+      xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+      const ownerUser = resolveInsertOwnerUsername(token);
+      xhr.send(
+        `dataname=${encodeURIComponent(dataname)}&surrogate=${encodeURIComponent(surrogate)}&text=${encodeURIComponent(html)}&token=${encodeURIComponent(token)}${ownerUser ? `&owner=${encodeURIComponent(ownerUser)}` : ""}`
+      );
+
+      showFlashMessage?.("💾 Saved");
+      tMod = 0;
+      return;
+    }
 
     // 🧹 Clone DOM for safe cleanup
     const clone = editable.cloneNode(true);
@@ -1773,10 +1787,7 @@ function deleteData() {
   const editToggle = document.querySelector(".edit-mode-toggle");
   if (!editToggle || !editToggle.checked) return;
 
-  const editable = document.getElementById("myTextarea");
-  if (!editable) return;
-
-  const text = editable.innerText || "";
+  const text = String(window._T2_RAWTEXT || "");
   const dataname = text.split("\n")[0];
 
   if (!surrogate || surrogate === "0") {
@@ -1793,10 +1804,8 @@ function deleteData() {
   xmlhttp.onreadystatechange = function () {
     if (xmlhttp.readyState === 4 && xmlhttp.status === 200) {
       console.log("✅ Delete Response:", xmlhttp.responseText);
-      const t1 = document.getElementById("myTextarea");
-      const t2 = document.getElementById("myTextarea2");
-      if (t1) t1.innerHTML = "";
-      if (t2) t2.innerHTML = "";
+      window._T2_RAWHTML = "";
+      window._T2_RAWTEXT = "";
       removeCurrentFromList(surrogate);
     }
   };
@@ -1889,16 +1898,7 @@ function selectItem(surrogate, token = null, listContainer = null) {
 
   
 //Critical fix: remove old highlight spans BEFORE loading new text
-  const area = document.getElementById("myTextarea");
-  if (area) {
-    area.querySelectorAll("span.hl, .comment-hint").forEach(el => {
-        el.outerHTML = el.innerHTML;
-    });
-  }
-  
-
-
-    highlightSelectedItem(surrogate, document.getElementById(`list-${token}`) || document);
+  highlightSelectedItem(surrogate, document.getElementById(`list-${token}`) || document);
 
   // 🧩 Prevent accidental double-processing
   if (
@@ -1985,9 +1985,6 @@ function selectItem(surrogate, token = null, listContainer = null) {
 
     // ✅ Initialize inline comment logic
     const editable = document.getElementById("myTextarea");
-    
-    
-
     if (editable) {
       initTextComments("#myTextarea", {
         owner: window.currentItemOwner,
@@ -2169,8 +2166,6 @@ function selectOfflineItem(surrogate, text) {
   }
 
   // 🧾 Load cached text
-  const ta1 = document.getElementById("myTextarea");
-  const ta2 = document.getElementById("myTextarea2");
   const txt = text || "";
 
   const looksLikeHTML = /<\/?[a-z][\s\S]*>/i.test(txt);
@@ -2178,17 +2173,8 @@ function selectOfflineItem(surrogate, text) {
     ? txt.replace(/\r?\n/g, "<br>")
     : escapeHtml(txt).replace(/\r?\n/g, "<br>");
 
-  if (ta1) ta1.innerHTML = html;
-  if (ta2) ta2.innerHTML = html;
-
-  // Plain-text version
-//   window._T2_RAWTEXT = htmlToPlainText(html);
-      
-    window._T2_RAWHTML = html;
-    window._T2_RAWTEXT = htmlToPlainText(html);
-    
-    // Optional: run trimmer in offline mode too
-    // requestAnimationFrame(() => textTrimmer?.());  
+  window._T2_RAWHTML = html;
+  window._T2_RAWTEXT = htmlToPlainText(html);
 
   // 🟦 NEW: Load cached comments + highlights (textmarks)
   try {
@@ -2203,37 +2189,12 @@ function selectOfflineItem(surrogate, text) {
     }
 
     // Apply marks (highlights + (pre-span) comments + drawings)
-    if (typeof applyTextmarks === "function") {
-      applyTextmarks(ta1);
-    }
+    window.textmarks = window.textmarks || [];
   } catch (err) {
     console.warn("⚠️ Failed to load offline textmarks:", err);
     window.textmarks = [];
   }
 
-  // -------------------------------------------------------------
-  // 🟦 REQUIRED OFFLINE FIX: Ensure comment overlay + bubble engine
-  // -------------------------------------------------------------
-
-  // 1) Ensure COMMENT_OVERLAY exists (offline normally lacks it)
-  if (!window.COMMENT_OVERLAY) {
-    window.COMMENT_OVERLAY = document.createElement("div");
-    window.COMMENT_OVERLAY.id = "comment-overlay";
-    window.COMMENT_OVERLAY.className = "comment-overlay";
-    ta1.parentNode.appendChild(window.COMMENT_OVERLAY);
-  }
-
-  // 2) Initialize comment engine (same as online)
-  if (typeof initTextComments === "function") {
-    initTextComments("#myTextarea", {
-      owner,
-      annotator: window.SESSION_USERNAME || owner,
-      surrogate,
-      offline: true
-    });
-  }
-
-  // 3) Materialize bubbles + drawings (offline-safe)
   if (typeof window.loadUserComments === "function") {
     window.loadUserComments(owner, surrogate);
   }
@@ -2384,8 +2345,7 @@ function cleanHtml(html = "") {
   window.CLOAK_BLUR = 5;  // initial ~40%
 
   // Estimate line height from first textarea if present
-  const t = document.getElementById("myTextarea");
-  const cs = t ? getComputedStyle(t) : { lineHeight: "20px" };
+  const cs = { lineHeight: "20px", fontSize: "16px" };
   const lineHeight =
     parseFloat(cs.lineHeight) ||
     parseFloat(cs.fontSize || "16") * 1.4 ||

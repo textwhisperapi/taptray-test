@@ -265,6 +265,10 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $selectedDate)) {
     $selectedDate = date('Y-m-d');
 }
 $partySize = max(1, min(12, (int)($_GET['party_size'] ?? 2)));
+$selectedTime = trim((string)($_GET['time'] ?? ''));
+if (!preg_match('/^\d{2}:\d{2}$/', $selectedTime)) {
+    $selectedTime = '';
+}
 $tables = rp_fetch_tables($mysqli, $merchantId);
 $reservations = rp_fetch_reservations($mysqli, $merchantId, $selectedDate);
 $dayRule = rp_fetch_day_rule($mysqli, $merchantId, $selectedDate);
@@ -290,6 +294,10 @@ $heroStats = [
     'bookings' => count($reservations),
     'window' => $openLabel . ' - ' . $closeLabel,
 ];
+$ownerQuery = '';
+if (isset($_GET['owner']) && trim((string)$_GET['owner']) !== '') {
+    $ownerQuery = '?owner=' . rawurlencode(trim((string)$_GET['owner']));
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -561,6 +569,14 @@ $heroStats = [
       color: #fff;
       border-color: rgba(45,111,96,0.4);
     }
+    .rp-date-chip,
+    .rp-slot {
+      transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background 140ms ease, opacity 140ms ease;
+    }
+    .rp-date-chip:hover,
+    .rp-slot:hover {
+      transform: translateY(-1px);
+    }
     .rp-date-chip-weekday {
       font-size: 11px;
       text-transform: uppercase;
@@ -585,6 +601,7 @@ $heroStats = [
       padding: 0 22px 22px;
     }
     .rp-slot {
+      appearance: none;
       border-radius: 22px;
       padding: 15px 16px;
       border: 1px solid rgba(45, 27, 15, 0.08);
@@ -593,6 +610,8 @@ $heroStats = [
       gap: 7px;
       text-align: left;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.92);
+      color: inherit;
+      text-decoration: none;
     }
     .rp-slot.is-open {
       border-color: rgba(45,111,96,0.2);
@@ -605,6 +624,16 @@ $heroStats = [
     .rp-slot.is-blocked {
       border-color: rgba(147, 58, 50, 0.16);
       background: linear-gradient(180deg, rgba(251,239,236,0.96), rgba(255,252,248,0.98));
+    }
+    .rp-slot.is-selected {
+      border-color: rgba(45,111,96,0.42);
+      background: linear-gradient(180deg, rgba(45,111,96,0.16), rgba(255,252,248,0.98));
+      box-shadow: 0 14px 28px rgba(45,111,96,0.18), inset 0 1px 0 rgba(255,255,255,0.92);
+      transform: translateY(-1px);
+    }
+    .rp-slot.is-disabled {
+      pointer-events: none;
+      opacity: 0.78;
     }
     .rp-slot-time {
       font-size: 24px;
@@ -767,6 +796,13 @@ $heroStats = [
       font-size: 14px;
       line-height: 1.5;
     }
+    .rp-shell.is-loading {
+      opacity: 0.72;
+    }
+    .rp-shell.is-loading .rp-date-chip,
+    .rp-shell.is-loading .rp-slot {
+      pointer-events: none;
+    }
     @media (max-width: 980px) {
       .rp-hero-grid,
       .rp-layout {
@@ -818,13 +854,16 @@ $heroStats = [
   </style>
 </head>
 <body>
-  <main class="rp-shell">
+  <main class="rp-shell" id="rpShell">
     <div class="rp-topbar">
       <div class="rp-brand">
         <span class="rp-brand-mark">TT</span>
         <span><?= htmlspecialchars($merchantLabel, ENT_QUOTES, 'UTF-8') ?></span>
       </div>
-      <a class="rp-link" href="/">Back to menu</a>
+      <div style="display:inline-flex;gap:10px;flex-wrap:wrap;">
+        <a class="rp-link" href="/rp_settings.php<?= htmlspecialchars($ownerQuery, ENT_QUOTES, 'UTF-8') ?>">RP settings</a>
+        <a class="rp-link" href="/">Back to menu</a>
+      </div>
     </div>
 
     <section class="rp-hero">
@@ -852,7 +891,7 @@ $heroStats = [
         <aside class="rp-intake">
           <div class="rp-intake-title">Quick setup</div>
           <strong>Your reservation details</strong>
-          <form method="get" action="/rp_reservations.php">
+          <form method="get" action="/rp_reservations.php" id="rpIntakeForm">
             <?php if (!empty($_GET['owner'])): ?>
               <input type="hidden" name="owner" value="<?= htmlspecialchars((string)$_GET['owner'], ENT_QUOTES, 'UTF-8') ?>">
             <?php endif; ?>
@@ -891,7 +930,7 @@ $heroStats = [
           </div>
         </div>
 
-        <div class="rp-date-row">
+        <div class="rp-date-row" id="rpDateRow">
           <?php foreach ($dateOptions as $option): ?>
             <?php
               $isActive = $option['value'] === $selectedDate;
@@ -911,26 +950,42 @@ $heroStats = [
           <?php endforeach; ?>
         </div>
 
-        <div class="rp-slots">
+        <div class="rp-slots" id="rpSlots">
           <?php foreach ($slotGrid as $slot): ?>
-            <article class="rp-slot is-<?= htmlspecialchars($slot['status'], ENT_QUOTES, 'UTF-8') ?>">
-              <div class="rp-slot-time"><?= htmlspecialchars($slot['label'], ENT_QUOTES, 'UTF-8') ?></div>
+            <?php
+              $slotLabel = (string)$slot['label'];
+              $isOpenSlot = (string)$slot['status'] === 'open';
+              $isSelectedSlot = $isOpenSlot && $selectedTime === $slotLabel;
+              $slotHref = '/rp_reservations.php?date=' . rawurlencode($selectedDate) . '&party_size=' . rawurlencode((string)$partySize) . '&time=' . rawurlencode($slotLabel);
+              if (!empty($_GET['owner'])) {
+                  $slotHref .= '&owner=' . rawurlencode((string)$_GET['owner']);
+              }
+              if ($merchantId > 0) {
+                  $slotHref .= '&merchant_id=' . rawurlencode((string)$merchantId);
+              }
+            ?>
+            <a class="rp-slot is-<?= htmlspecialchars($slot['status'], ENT_QUOTES, 'UTF-8') ?><?= $isSelectedSlot ? ' is-selected' : '' ?><?= !$isOpenSlot ? ' is-disabled' : '' ?>" href="<?= $isOpenSlot ? htmlspecialchars($slotHref, ENT_QUOTES, 'UTF-8') : '#' ?>"<?= $isSelectedSlot ? ' aria-current="true"' : '' ?>>
+              <div class="rp-slot-time"><?= htmlspecialchars($slotLabel, ENT_QUOTES, 'UTF-8') ?></div>
               <div class="rp-slot-badge"><?= htmlspecialchars($slot['status'], ENT_QUOTES, 'UTF-8') ?></div>
               <div class="rp-slot-caption"><?= htmlspecialchars($slot['caption'], ENT_QUOTES, 'UTF-8') ?></div>
-            </article>
+            </a>
           <?php endforeach; ?>
         </div>
       </section>
 
       <aside class="rp-right-col">
-        <section class="rp-panel rp-summary">
+        <section class="rp-panel rp-summary" id="rpSummaryPanel">
           <div class="rp-panel-title">Reservation feel</div>
           <div class="rp-panel-sub">This side is meant to reassure the guest and keep the booking choice obvious.</div>
 
           <div class="rp-summary-card">
-            <div class="rp-summary-label">Selected day</div>
+            <div class="rp-summary-label">Selected reservation</div>
             <div class="rp-summary-value"><?= htmlspecialchars(date('l, j M', strtotime($selectedDate)), ENT_QUOTES, 'UTF-8') ?></div>
-            <div class="rp-summary-copy">Party of <?= htmlspecialchars((string)$partySize, ENT_QUOTES, 'UTF-8') ?>. Serving window <?= htmlspecialchars($openLabel, ENT_QUOTES, 'UTF-8') ?> to <?= htmlspecialchars($closeLabel, ENT_QUOTES, 'UTF-8') ?>.</div>
+            <div class="rp-summary-copy">
+              Party of <?= htmlspecialchars((string)$partySize, ENT_QUOTES, 'UTF-8') ?>.
+              <?= $selectedTime !== '' ? 'Selected time ' . htmlspecialchars($selectedTime, ENT_QUOTES, 'UTF-8') . '.' : 'Choose a time below to continue.' ?>
+              Serving window <?= htmlspecialchars($openLabel, ENT_QUOTES, 'UTF-8') ?> to <?= htmlspecialchars($closeLabel, ENT_QUOTES, 'UTF-8') ?>.
+            </div>
           </div>
 
           <div class="rp-summary-card">
@@ -940,12 +995,13 @@ $heroStats = [
           </div>
 
           <div class="rp-cta">
-            <a class="rp-btn primary" href="#availability">Continue with selected time</a>
+            <a class="rp-btn primary" href="#availability"><?= $selectedTime !== '' ? 'Continue with ' . htmlspecialchars($selectedTime, ENT_QUOTES, 'UTF-8') : 'Choose a time first' ?></a>
             <a class="rp-btn secondary" href="/">Back to menu</a>
           </div>
         </section>
 
         <section class="rp-panel rp-today" id="availability">
+          <div id="rpFloorPanel">
           <div class="rp-panel-title">Today’s floor</div>
           <div class="rp-panel-sub">Live reservations already on the books for the selected day.</div>
 
@@ -973,9 +1029,75 @@ $heroStats = [
           <?php else: ?>
             <div class="rp-empty">No active reservations are stored yet for <?= htmlspecialchars(date('j M Y', strtotime($selectedDate)), ENT_QUOTES, 'UTF-8') ?>. That makes this a good first day to shape the customer flow and copy.</div>
           <?php endif; ?>
+          </div>
         </section>
       </aside>
     </section>
   </main>
+  <script>
+    (function () {
+      const shell = document.getElementById("rpShell");
+      const form = document.getElementById("rpIntakeForm");
+      if (!shell || !form) return;
+
+      const SECTION_IDS = ["rpDateRow", "rpSlots", "rpSummaryPanel", "rpFloorPanel"];
+
+      async function updatePlanner(url, options = {}) {
+        if (shell.dataset.loading === "1") return;
+        shell.dataset.loading = "1";
+        shell.classList.add("is-loading");
+
+        try {
+          const res = await fetch(url, {
+            method: "GET",
+            headers: { "X-Requested-With": "fetch" },
+            cache: "no-store"
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+          const html = await res.text();
+          const doc = new DOMParser().parseFromString(html, "text/html");
+          SECTION_IDS.forEach((id) => {
+            const next = doc.getElementById(id);
+            const current = document.getElementById(id);
+            if (next && current) current.replaceWith(next);
+          });
+
+          const nextTitle = doc.querySelector("title");
+          if (nextTitle) document.title = nextTitle.textContent || document.title;
+          if (!options.skipHistory) {
+            window.history.pushState({}, "", url);
+          }
+        } catch (err) {
+          console.error("RP partial update failed:", err);
+          window.location.href = url;
+          return;
+        } finally {
+          shell.dataset.loading = "0";
+          shell.classList.remove("is-loading");
+        }
+      }
+
+      document.addEventListener("click", (event) => {
+        const link = event.target.closest("#rpDateRow a.rp-date-chip, #rpSlots a.rp-slot");
+        if (!link) return;
+        const href = link.getAttribute("href");
+        if (!href || href === "#") return;
+        event.preventDefault();
+        updatePlanner(href);
+      });
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const params = new URLSearchParams(new FormData(form));
+        const url = form.action + "?" + params.toString();
+        updatePlanner(url);
+      });
+
+      window.addEventListener("popstate", () => {
+        updatePlanner(window.location.href, { skipHistory: true });
+      });
+    })();
+  </script>
 </body>
 </html>
