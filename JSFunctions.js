@@ -1502,7 +1502,16 @@ function getTapTrayLockedLabel(status) {
   const value = String(status || "").trim();
   if (value === "ready") return "Ready";
   if (value === "queued") return "Queued";
+  if (value === "closed") return "Closed";
   return "Making";
+}
+
+function getTapTrayStatusClass(status) {
+  const value = String(status || "").trim();
+  if (value === "queued") return "is-queued";
+  if (value === "ready") return "is-ready";
+  if (value === "closed") return "is-closed";
+  return "is-making";
 }
 
 function clearTapTrayCartForReturnedOrderIfMatched() {
@@ -1522,9 +1531,6 @@ function clearTapTrayCartForReturnedOrderIfMatched() {
 }
 
 function getTapTrayOrderShortNumber(order) {
-  const reference = String(order?.order_reference || "").trim().toLowerCase();
-  const match = reference.match(/_([a-f0-9]{4,8})$/);
-  if (match) return `#${match[1].toUpperCase()}`;
   return `#${Number(order?.id || 0)}`;
 }
 
@@ -1554,8 +1560,9 @@ function renderTapTrayOrderRow(item, options = {}) {
     ? `<div class="item-price-chip">${escapeHtml(price)}</div>`
     : `<div class="item-price-chip is-placeholder">Set price</div>`;
   const actionLabel = String(options.actionLabel || "").trim();
+  const statusClass = getTapTrayStatusClass(options.status || actionLabel);
   const actionHtml = options.locked
-    ? `<button class="item-square-action" type="button" disabled>${escapeHtml(actionLabel || "Making")}</button>`
+    ? `<div class="taptray-status-badge ${statusClass}" aria-label="${escapeHtml(actionLabel || "Making")}">${escapeHtml(actionLabel || "Making")}</div>`
     : `<button class="item-square-action" onclick="taptrayReduceItem(this, ${Number(surrogate || 0)}); event.stopPropagation();">${escapeHtml(actionLabel || "Cancel")}</button>`;
 
   return `
@@ -1654,6 +1661,7 @@ function updateTapTrayOrderBar() {
             ${pastItems.map((item) => renderTapTrayOrderRow(item, {
               locked: true,
               actionLabel: "Closed",
+              status: "closed",
             })).join("")}
           </div>
         `;
@@ -1664,6 +1672,7 @@ function updateTapTrayOrderBar() {
     ...activeEntries.map((item) => renderTapTrayOrderRow(item, {
       locked: true,
       actionLabel: getTapTrayLockedLabel(item?._taptrayOrderStatus),
+      status: item?._taptrayOrderStatus || "making",
     })),
     ...cartEntries.map((item) => renderTapTrayOrderRow(item, {
       locked: false,

@@ -160,6 +160,7 @@ function tt_orders_get_by_reference(mysqli $mysqli, string $orderReference): ?ar
         return null;
     }
     $row['items'] = json_decode((string) ($row['items_json'] ?? '[]'), true) ?: [];
+    $row['items'] = tt_orders_attach_recipe_texts($mysqli, $row['items']);
     return $row;
 }
 
@@ -181,6 +182,7 @@ function tt_orders_list_active_for_customer(mysqli $mysqli, string $customerToke
     $rows = [];
     while ($row = $result->fetch_assoc()) {
         $row['items'] = json_decode((string) ($row['items_json'] ?? '[]'), true) ?: [];
+        $row['items'] = tt_orders_attach_recipe_texts($mysqli, $row['items']);
         $rows[] = $row;
     }
     return $rows;
@@ -211,6 +213,7 @@ function tt_orders_list_past_for_customer(mysqli $mysqli, string $customerToken,
     $rows = [];
     while ($row = $result->fetch_assoc()) {
         $row['items'] = json_decode((string) ($row['items_json'] ?? '[]'), true) ?: [];
+        $row['items'] = tt_orders_attach_recipe_texts($mysqli, $row['items']);
         $rows[] = $row;
     }
     return $rows;
@@ -230,9 +233,141 @@ function tt_orders_list_open(mysqli $mysqli): array {
     $rows = [];
     while ($row = $result->fetch_assoc()) {
         $row['items'] = json_decode((string) ($row['items_json'] ?? '[]'), true) ?: [];
+        $row['items'] = tt_orders_attach_recipe_texts($mysqli, $row['items']);
         $rows[] = $row;
     }
     return $rows;
+}
+
+function tt_orders_fetch_recipe_text_for_item(mysqli $mysqli, array $item): string {
+    $surrogate = (int) ($item['surrogate'] ?? 0);
+    if ($surrogate > 0) {
+        $stmt = $mysqli->prepare("
+            SELECT Text
+            FROM text
+            WHERE Surrogate = ?
+              AND (deleted IS NULL OR deleted != 'D')
+            LIMIT 1
+        ");
+        if ($stmt) {
+            $stmt->bind_param('i', $surrogate);
+            $stmt->execute();
+            $text = (string) ($stmt->get_result()->fetch_assoc()['Text'] ?? '');
+            $stmt->close();
+            if ($text !== '') {
+                return preg_replace("/^\s*[^\n]*\n?/", '', str_replace("\r\n", "\n", $text), 1) ?? '';
+            }
+        }
+    }
+
+    $title = trim((string) ($item['title'] ?? ''));
+    if ($title === '') {
+        return '';
+    }
+
+    $stmt = $mysqli->prepare("
+        SELECT Text
+        FROM text
+        WHERE dataname = ?
+          AND (deleted IS NULL OR deleted != 'D')
+        ORDER BY Surrogate DESC
+        LIMIT 1
+    ");
+    if (!$stmt) {
+        return '';
+    }
+    $stmt->bind_param('s', $title);
+    $stmt->execute();
+    $text = (string) ($stmt->get_result()->fetch_assoc()['Text'] ?? '');
+    $stmt->close();
+    if ($text === '') {
+        return '';
+    }
+    return preg_replace("/^\s*[^\n]*\n?/", '', str_replace("\r\n", "\n", $text), 1) ?? '';
+}
+
+function tt_orders_enrich_item_identity(mysqli $mysqli, array $item): array {
+    $surrogate = (int) ($item['surrogate'] ?? 0);
+    $title = trim((string) ($item['title'] ?? ''));
+
+    if ($surrogate > 0) {
+        $item['surrogate'] = $surrogate;
+        if (trim((string) ($item['id'] ?? '')) === '') {
+            $item['id'] = (string) $surrogate;
+        }
+    }
+
+    if ($surrogate > 0 && trim((string) ($item['token'] ?? '')) === '') {
+        $stmt = $mysqli->prepare("
+            SELECT cl.token
+            FROM content_list_items cli
+            JOIN content_lists cl ON cl.id = cli.content_list_id
+            WHERE cli.surrogate = ?
+            ORDER BY cli.sort_order ASC, cl.id ASC
+            LIMIT 1
+        ");
+        if ($stmt) {
+            $stmt->bind_param('i', $surrogate);
+            $stmt->execute();
+            $row = $stmt->get_result()->fetch_assoc() ?: null;
+            $stmt->close();
+            if ($row) {
+                $item['token'] = trim((string) ($row['token'] ?? ''));
+            }
+        }
+    }
+
+    if ($surrogate > 0 || $title === '') {
+        return $item;
+    }
+
+    $stmt = $mysqli->prepare("
+        SELECT t.Surrogate AS surrogate, cl.token
+        FROM text t
+        LEFT JOIN content_list_items cli ON cli.surrogate = t.Surrogate
+        LEFT JOIN content_lists cl ON cl.id = cli.content_list_id
+        WHERE t.dataname = ?
+          AND (t.deleted IS NULL OR t.deleted != 'D')
+        ORDER BY t.Surrogate DESC
+        LIMIT 1
+    ");
+    if (!$stmt) {
+        return $item;
+    }
+    $stmt->bind_param('s', $title);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc() ?: null;
+    $stmt->close();
+    if (!$row) {
+        return $item;
+    }
+
+    $resolvedSurrogate = (int) ($row['surrogate'] ?? 0);
+    if ($resolvedSurrogate > 0) {
+        $item['surrogate'] = $resolvedSurrogate;
+        if (trim((string) ($item['id'] ?? '')) === '') {
+            $item['id'] = (string) $resolvedSurrogate;
+        }
+    }
+    if (trim((string) ($item['token'] ?? '')) === '') {
+        $item['token'] = trim((string) ($row['token'] ?? ''));
+    }
+
+    return $item;
+}
+
+function tt_orders_attach_recipe_texts(mysqli $mysqli, array $items): array {
+    foreach ($items as $index => $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $item = tt_orders_enrich_item_identity($mysqli, $item);
+        $items[$index]['recipe_text'] = tt_orders_fetch_recipe_text_for_item($mysqli, $item);
+        $items[$index]['surrogate'] = (int) ($item['surrogate'] ?? 0);
+        $items[$index]['id'] = (string) ($item['id'] ?? '');
+        $items[$index]['token'] = (string) ($item['token'] ?? '');
+    }
+    return $items;
 }
 
 function tt_orders_register_push_subscription(mysqli $mysqli, string $orderReference, array $subscription, string $env): bool {

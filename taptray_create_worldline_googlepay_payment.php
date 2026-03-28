@@ -106,6 +106,8 @@ foreach ($cart as $row) {
 
     $normalizedItems[] = [
         'id' => (string) ($row['id'] ?? ''),
+        'surrogate' => (int) ($row['surrogate'] ?? 0),
+        'token' => trim((string) ($row['token'] ?? '')),
         'title' => $title,
         'quantity' => $quantity,
         'price_label' => trim((string) ($row['price_label'] ?? '')),

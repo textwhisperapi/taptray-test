@@ -40,7 +40,7 @@ sec_session_start();
 $listOwnerUsername = $_SESSION['username'] ?? '';
 
 //Version is now se globally in service-worker.php
-$version = 'v151';
+$version = 'v152';
 
 
 header('Content-Type: text/html; charset=utf-8');
@@ -1303,6 +1303,67 @@ if (!$vapidKey) {
 <script>
   (function () {
     let tapTrayOrderPollId = null;
+    const tapTraySubscribedRefs = new Set();
+
+    function getTapTrayVapidKeyBytes() {
+      if (!window.VAPID_PUBLIC_KEY) return null;
+      const padding = "=".repeat((4 - window.VAPID_PUBLIC_KEY.length % 4) % 4);
+      const base64 = (window.VAPID_PUBLIC_KEY + padding).replace(/-/g, "+").replace(/_/g, "/");
+      const raw = atob(base64);
+      return Uint8Array.from([...raw].map((ch) => ch.charCodeAt(0)));
+    }
+
+    async function ensureTapTrayPushSubscriptionForOrders(orders) {
+      const activeOrders = Array.isArray(orders) ? orders : [];
+      if (!activeOrders.length || !("serviceWorker" in navigator) || !("PushManager" in window) || !window.VAPID_PUBLIC_KEY) {
+        return;
+      }
+
+      const refs = activeOrders
+        .map((entry) => String(entry?.order_reference || "").trim())
+        .filter(Boolean)
+        .filter((ref) => !tapTraySubscribedRefs.has(ref));
+
+      if (!refs.length) {
+        return;
+      }
+
+      try {
+        if (Notification.permission === "default") {
+          await Notification.requestPermission();
+        }
+        if (Notification.permission !== "granted") {
+          return;
+        }
+
+        const reg = await navigator.serviceWorker.ready;
+        const key = getTapTrayVapidKeyBytes();
+        if (!key) return;
+        const subscription = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: key
+        });
+
+        for (const orderReference of refs) {
+          const response = await fetch("/taptray_order_subscribe.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({
+              order_reference: orderReference,
+              env: location.host,
+              subscription
+            })
+          });
+          const data = await response.json().catch(() => null);
+          if (response.ok && data && data.ok) {
+            tapTraySubscribedRefs.add(orderReference);
+          }
+        }
+      } catch (err) {
+        console.warn("TapTray order push sync failed", err);
+      }
+    }
 
     async function loadTapTrayActiveOrder() {
       try {
@@ -1317,6 +1378,7 @@ if (!$vapidKey) {
         window.taptrayActiveOrders = orders;
         window.taptrayPastOrders = pastOrders;
         window.taptrayActiveOrder = order;
+        ensureTapTrayPushSubscriptionForOrders(orders);
         document.dispatchEvent(new CustomEvent("taptray:active-order-updated", {
           detail: { order, orders, pastOrders }
         }));
@@ -1385,7 +1447,7 @@ if (!$vapidKey) {
 <script src="/JSTextComments.js?v=<?= $version ?>" defer></script>
 <script src="/JSTextDrawing.js?v=<?= $version ?>" defer></script>
 <script src="/JSText.js?v=<?= $version ?>" defer></script>
-<script src="/JSFunctions.js?v=<?= $version ?>" defer></script>
+<script src="/JSFunctions.js?v=<?= $version ?>-status2" defer></script>
 <script src="/JSCreateImportPDFs.js?v=<?= $version ?>" defer></script>
 <script src="/JSDriveImport.js?v=<?= $version ?>" defer></script>
 <script src="/JSDrawingPDF.js?v=<?= $version ?>" defer></script>
@@ -1537,20 +1599,25 @@ taptrayDetailStyle.textContent = `
   .group-contents .list-sub-item.active .item-thumb.is-placeholder { color: rgba(255,255,255,0.78); }
   .group-contents .list-sub-item.active .taptray-order-btn { background: #fff; color: var(--skin-accent); border-color: rgba(255,255,255,0.36); }
   .item-title { cursor: pointer; min-width: 0; color: var(--skin-text); font-weight: 800; font-size: 18px; line-height: 1.14; letter-spacing: -0.01em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .taptray-menu-row { display: grid; grid-template-columns: 62px minmax(0, 1fr) 72px; gap: 10px; align-items: center; width: 100%; }
+  .taptray-menu-row { display: grid; grid-template-columns: 62px minmax(0, 1fr) 84px; gap: 10px; align-items: center; width: 100%; }
   .item-media-rail { display: flex; align-items: center; justify-content: center; align-self: stretch; }
   .taptray-menu-copy { min-width: 0; min-height: 56px; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 0; }
   .item-head { display: block; }
-  .item-price-chip { display: inline-flex; align-self: flex-start; margin-top: 1px; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--skin-accent) 10%, var(--skin-surface)); color: var(--skin-accent); font-size: 12px; line-height: 1.1; font-weight: 800; border: 1px solid color-mix(in srgb, var(--skin-accent) 14%, var(--skin-border)); white-space: nowrap; }
+  .item-price-chip { display: inline-flex; align-self: flex-start; margin-top: 1px; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--skin-accent) 10%, var(--skin-surface)); color: var(--skin-accent); font-size: 12px; line-height: 1.1; font-weight: 800; border: 1px solid color-mix(in srgb, var(--skin-accent) 14%, var(--skin-border)); white-space: nowrap; box-sizing: border-box; }
   .item-price-chip.is-placeholder { background: var(--skin-surface-2); color: var(--skin-muted); border-color: var(--skin-border); font-weight: 600; }
   .taptray-menu-copy .item-summary,
   .taptray-menu-row .item-summary { font-size: 12px !important; line-height: 1.28; color: var(--skin-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 100%; }
   .item-summary.is-placeholder { color: var(--skin-muted); font-style: italic; }
-  .item-action-square { display: grid; grid-template-rows: auto auto; gap: 5px; align-items: center; justify-items: stretch; width: 72px; }
+  .item-action-square { display: grid; grid-template-rows: auto auto; gap: 5px; align-items: center; justify-items: stretch; width: 84px; }
   .item-square-main { position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; }
   .item-qty-badge { position: absolute; top: -4px; left: -4px; min-width: 16px; height: 16px; padding: 0 4px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: var(--skin-surface); color: var(--skin-text); font-size: 9px; font-weight: 800; border: 1px solid var(--skin-border); box-shadow: 0 3px 8px rgba(12,16,24,0.10); z-index: 2; }
-  .item-square-actions { display: inline-flex; gap: 6px; align-items: center; justify-content: center; }
-  .item-square-action { min-width: 0; padding: 5px 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--skin-accent) 14%, var(--skin-border)); background: color-mix(in srgb, var(--skin-accent) 10%, var(--skin-surface)); color: var(--skin-accent); font-size: 12px; font-weight: 700; line-height: 1; box-shadow: 0 2px 6px rgba(12,16,24,0.08); }
+  .item-square-actions { display: inline-flex; width: 100%; gap: 6px; align-items: center; justify-content: center; }
+  .taptray-status-badge { min-width: 84px; width: 100%; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 4px 10px; border-radius: 999px; border: 1px solid #d7dde7; background: #f7f9fc; color: #2f3b52; font-size: 12px; font-weight: 800; line-height: 1.1; white-space: nowrap; }
+  .taptray-status-badge.is-queued { background: #fff1df; color: #9a5a18; border-color: #f0c99a; }
+  .taptray-status-badge.is-making { background: #fff0bf; color: #9a6a00; border-color: #ebd27b; }
+  .taptray-status-badge.is-ready { background: #5b8f79; color: #ffffff; border-color: #497664; }
+  .taptray-status-badge.is-closed { background: #eceff4; color: #536172; border-color: #cfd7e1; }
+  .item-square-action { min-width: 84px; width: 100%; min-height: 0; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 4px 10px; border-radius: 999px; border: 1px solid transparent; background: color-mix(in srgb, var(--skin-accent) 10%, var(--skin-surface)); color: var(--skin-accent); font-size: 12px; font-weight: 800; line-height: 1.1; white-space: nowrap; box-shadow: none; }
   .item-square-action.is-remove { color: var(--skin-accent); }
   .item-thumb { width: 60px; height: 60px; border-radius: 12px; overflow: hidden; background: var(--skin-surface-2); border: 1px solid var(--skin-border); flex-shrink: 0; box-shadow: inset 0 1px 0 rgba(255,255,255,0.35); }
   .item-action-square .item-thumb,
@@ -1600,7 +1667,7 @@ taptrayDetailStyle.textContent = `
   .taptray-order-history[open] .taptray-order-history-title::before { content: "▾"; }
   .taptray-order-history-group { margin-top: 8px; }
   .taptray-order-history-meta { margin: 0 0 6px; font-size: 11px; font-weight: 700; color: var(--skin-muted); }
-  @media (max-width: 720px) { .list-sub-item { grid-template-columns: minmax(0, 1fr) auto; min-height: 76px; } .taptray-menu-row { grid-template-columns: 52px minmax(0, 1fr) 84px; gap: 8px; } .item-title { font-size: 16px; } .taptray-menu-copy .item-summary, .taptray-menu-row .item-summary { font-size: 12px !important; line-height: 1.25; } .item-action-square { width: 84px; } .item-square-main { width: 50px; height: 50px; } .item-qty-badge { min-width: 14px; height: 14px; font-size: 8px; top: -4px; left: -4px; } .item-square-action { min-width: 0; width: 100%; padding: 5px 6px; font-size: 12px; white-space: nowrap; } .item-thumb, .item-action-square .item-thumb, .item-media-rail .item-thumb { width: 50px; height: 50px; } .taptray-order-btn { padding: 5px 6px; font-size: 12px; } .taptray-order-title { font-size: 13px; } .taptray-order-meta { font-size: 14px; } .item-menu-wrapper { grid-column: 2; grid-row: 1; } .taptray-tree-item-body { grid-template-columns: 92px minmax(0, 1fr); gap: 10px; } .taptray-tree-item-media { width: 92px; } .taptray-tree-item-media img { max-height: 184px; } .taptray-tree-item-title { font-size: 18px; } }
+  @media (max-width: 720px) { .list-sub-item { grid-template-columns: minmax(0, 1fr) auto; min-height: 76px; } .taptray-menu-row { grid-template-columns: 52px minmax(0, 1fr) 84px; gap: 8px; } .item-title { font-size: 16px; } .taptray-menu-copy .item-summary, .taptray-menu-row .item-summary { font-size: 12px !important; line-height: 1.25; } .item-action-square { width: 84px; } .item-square-main { width: 50px; height: 50px; } .item-qty-badge { min-width: 14px; height: 14px; font-size: 8px; top: -4px; left: -4px; } .taptray-status-badge { min-width: 84px; width: 100%; padding: 4px 8px; font-size: 12px; line-height: 1.1; white-space: nowrap; } .item-square-action { min-width: 84px; width: 100%; min-height: 0; padding: 4px 8px; font-size: 12px; line-height: 1.1; white-space: nowrap; } .item-thumb, .item-action-square .item-thumb, .item-media-rail .item-thumb { width: 50px; height: 50px; } .taptray-order-btn { padding: 5px 6px; font-size: 12px; } .taptray-order-title { font-size: 13px; } .taptray-order-meta { font-size: 14px; } .item-menu-wrapper { grid-column: 2; grid-row: 1; } .taptray-tree-item-body { grid-template-columns: 92px minmax(0, 1fr); gap: 10px; } .taptray-tree-item-media { width: 92px; } .taptray-tree-item-media img { max-height: 184px; } .taptray-tree-item-title { font-size: 18px; } }
   @media (max-width: 980px) { .tt-item-shell { grid-template-columns: 1fr; } }
   @media (max-width: 720px) { .tt-item-details { padding: 10px; } .tt-item-main { padding: 16px; } .tt-item-grid { grid-template-columns: 1fr; } .tt-item-header { flex-direction: column; } .tt-item-price-wrap { width: 100%; } }
 `;
