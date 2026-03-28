@@ -19,6 +19,7 @@ function tt_orders_ensure_schema(mysqli $mysqli): void {
         CREATE TABLE IF NOT EXISTS taptray_orders (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             order_reference VARCHAR(96) NOT NULL,
+            order_name VARCHAR(191) DEFAULT NULL,
             customer_token VARCHAR(64) NOT NULL,
             customer_username VARCHAR(191) DEFAULT NULL,
             merchant_name VARCHAR(191) NOT NULL DEFAULT 'TapTray',
@@ -39,6 +40,11 @@ function tt_orders_ensure_schema(mysqli $mysqli): void {
             KEY idx_taptray_status_created (status, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
+
+    $hasOrderName = $mysqli->query("SHOW COLUMNS FROM taptray_orders LIKE 'order_name'");
+    if ($hasOrderName && $hasOrderName->num_rows === 0) {
+        $mysqli->query("ALTER TABLE taptray_orders ADD COLUMN order_name VARCHAR(191) DEFAULT NULL AFTER order_reference");
+    }
 
     $mysqli->query("
         CREATE TABLE IF NOT EXISTS taptray_order_push_subscriptions (
@@ -76,6 +82,7 @@ function tt_orders_customer_token(): string {
 function tt_orders_normalize_order(array $order): array {
     return [
         'reference' => trim((string) ($order['reference'] ?? '')),
+        'order_name' => trim((string) ($order['order_name'] ?? '')),
         'merchant_name' => trim((string) ($order['merchant_name'] ?? 'TapTray')) ?: 'TapTray',
         'currency' => strtoupper(trim((string) ($order['currency'] ?? 'EUR'))) ?: 'EUR',
         'amount_minor' => (int) ($order['totals']['amount_minor'] ?? 0),
@@ -99,9 +106,10 @@ function tt_orders_upsert_paid_order(mysqli $mysqli, array $order): ?array {
 
     $stmt = $mysqli->prepare("
         INSERT INTO taptray_orders
-            (order_reference, customer_token, customer_username, merchant_name, currency, amount_minor, total_quantity, wallet_path, status, items_json, worldline_payment_id, worldline_checkout_id)
-        VALUES (?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, 'in_process', ?, NULLIF(?, ''), NULLIF(?, ''))
+            (order_reference, order_name, customer_token, customer_username, merchant_name, currency, amount_minor, total_quantity, wallet_path, status, items_json, worldline_payment_id, worldline_checkout_id)
+        VALUES (?, NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, ?, ?, ?, 'queued', ?, NULLIF(?, ''), NULLIF(?, ''))
         ON DUPLICATE KEY UPDATE
+            order_name = COALESCE(NULLIF(VALUES(order_name), ''), order_name),
             customer_token = VALUES(customer_token),
             customer_username = VALUES(customer_username),
             merchant_name = VALUES(merchant_name),
@@ -112,14 +120,15 @@ function tt_orders_upsert_paid_order(mysqli $mysqli, array $order): ?array {
             items_json = VALUES(items_json),
             worldline_payment_id = VALUES(worldline_payment_id),
             worldline_checkout_id = VALUES(worldline_checkout_id),
-            status = IF(status = 'closed', status, 'in_process')
+            status = IF(status = 'closed', status, 'queued')
     ");
     if (!$stmt) {
         return null;
     }
     $stmt->bind_param(
-        'ssssiisssss',
+        'ssssiissssss',
         $normalized['reference'],
+        $normalized['order_name'],
         $customerToken,
         $customerUsername,
         $normalized['merchant_name'],
@@ -159,7 +168,7 @@ function tt_orders_list_active_for_customer(mysqli $mysqli, string $customerToke
     $stmt = $mysqli->prepare("
         SELECT * FROM taptray_orders
         WHERE customer_token = ?
-          AND status IN ('in_process', 'ready')
+          AND status IN ('queued', 'in_process', 'making', 'ready')
         ORDER BY created_at DESC
     ");
     if (!$stmt) {
@@ -212,7 +221,7 @@ function tt_orders_list_open(mysqli $mysqli): array {
     $result = $mysqli->query("
         SELECT *
         FROM taptray_orders
-        WHERE status IN ('in_process', 'ready')
+        WHERE status IN ('queued', 'in_process', 'making', 'ready')
         ORDER BY created_at ASC
     ");
     if (!$result) {
@@ -324,7 +333,7 @@ function tt_orders_send_ready_push(mysqli $mysqli, array $order): void {
 
 function tt_orders_update_status(mysqli $mysqli, string $orderReference, string $status): ?array {
     tt_orders_ensure_schema($mysqli);
-    $status = in_array($status, ['in_process', 'ready', 'closed'], true) ? $status : 'in_process';
+    $status = in_array($status, ['queued', 'in_process', 'making', 'ready', 'closed'], true) ? $status : 'in_process';
     $stmt = $mysqli->prepare("
         UPDATE taptray_orders
         SET status = ?,

@@ -87,6 +87,19 @@ $menuReturnUrl = '/';
 if ($orderReference !== '') {
     $menuReturnUrl = '/?taptray_order=' . rawurlencode($orderReference);
 }
+
+$isPreviewMode = ($testPayloadRaw !== '' || isset($_GET['test']));
+
+if (!$isPreviewMode) {
+    try {
+        unset($_SESSION['taptray_pending_order'], $_SESSION['taptray_completed_order']);
+    } catch (Throwable $_ignored) {
+    }
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Location: ' . $menuReturnUrl, true, 302);
+    exit;
+}
 ?>
 <!doctype html>
 <html lang="en">

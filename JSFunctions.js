@@ -1476,7 +1476,7 @@ function getTapTrayActiveOrders() {
   const orders = Array.isArray(window.taptrayActiveOrders) ? window.taptrayActiveOrders : [];
   return orders.filter((order) => {
     const status = String(order?.status || "").trim();
-    return status === "in_process" || status === "ready";
+    return status === "queued" || status === "in_process" || status === "making" || status === "ready";
   });
 }
 
@@ -1499,7 +1499,43 @@ function getTapTrayActiveOrderItem(surrogate) {
 }
 
 function getTapTrayLockedLabel(status) {
-  return String(status || "") === "ready" ? "Ready" : "Making";
+  const value = String(status || "").trim();
+  if (value === "ready") return "Ready";
+  if (value === "queued") return "Queued";
+  return "Making";
+}
+
+function clearTapTrayCartForReturnedOrderIfMatched() {
+  const params = new URLSearchParams(window.location.search || "");
+  const targetOrderRef = String(params.get("taptray_order") || "").trim();
+  if (!targetOrderRef) return;
+  const matched = getTapTrayActiveOrders().some((order) =>
+    String(order?.order_reference || "").trim() === targetOrderRef
+  ) || getTapTrayPastOrders().some((order) =>
+    String(order?.order_reference || "").trim() === targetOrderRef
+  );
+  if (!matched) return;
+  try {
+    localStorage.removeItem("taptray:cart");
+  } catch {}
+  window.taptrayCart = {};
+}
+
+function getTapTrayOrderShortNumber(order) {
+  const reference = String(order?.order_reference || "").trim().toLowerCase();
+  const match = reference.match(/_([a-f0-9]{4,8})$/);
+  if (match) return `#${match[1].toUpperCase()}`;
+  return `#${Number(order?.id || 0)}`;
+}
+
+function getTapTrayOrderDisplayName(order) {
+  const explicitName = String(order?.order_name || "").trim();
+  if (explicitName) return explicitName;
+  const items = Array.isArray(order?.items) ? order.items : [];
+  if (!items.length) return "Order";
+  const firstTitle = String(items[0]?.title || "Order").trim() || "Order";
+  const extra = Math.max(0, items.length - 1);
+  return extra > 0 ? `${firstTitle} +${extra}` : firstTitle;
 }
 
 function renderTapTrayOrderRow(item, options = {}) {
@@ -1570,7 +1606,11 @@ function updateTapTrayOrderBar() {
   const totalQty = activeEntries.reduce((sum, item) => sum + Number(item?.quantity || 0), 0)
     + cartEntries.reduce((sum, item) => sum + Number(item?.quantity || 0), 0);
   const totalPrice = cartEntries.reduce((sum, item) => sum + (parseTapTrayPriceValue(item?.price_label) * Number(item?.quantity || 0)), 0);
-  const isExpanded = bar.dataset.expanded === "1";
+  const wasHidden = bar.hidden;
+  if (bar.dataset.expanded !== "0" && bar.dataset.expanded !== "1") {
+    bar.dataset.expanded = "1";
+  }
+  let isExpanded = bar.dataset.expanded === "1";
 
   if (totalQty <= 0 && pastOrders.length <= 0) {
     bar.hidden = true;
@@ -1586,9 +1626,17 @@ function updateTapTrayOrderBar() {
   }
 
   bar.hidden = false;
+  if (wasHidden) {
+    bar.dataset.expanded = "1";
+    isExpanded = true;
+  }
   const priceText = totalPrice > 0 ? ` · ${Math.round(totalPrice)}` : "";
-  const statusText = activeEntries.length ? `${activeOrders.length} active order${activeOrders.length === 1 ? "" : "s"} · ` : "";
-  meta.textContent = `${statusText}${totalQty} item${totalQty === 1 ? "" : "s"}${priceText}`;
+  if (activeOrders.length === 1) {
+    meta.textContent = `${getTapTrayOrderShortNumber(activeOrders[0])} · ${getTapTrayOrderDisplayName(activeOrders[0])}`;
+  } else {
+    const statusText = activeEntries.length ? `${activeOrders.length} active order${activeOrders.length === 1 ? "" : "s"} · ` : "";
+    meta.textContent = `${statusText}${totalQty} item${totalQty === 1 ? "" : "s"}${priceText}`;
+  }
   payBtn.disabled = cartEntries.length <= 0;
   payBtn.textContent = "Pay";
   toggleBtn.setAttribute("aria-expanded", isExpanded ? "true" : "false");
@@ -1602,7 +1650,7 @@ function updateTapTrayOrderBar() {
         const pastItems = Array.isArray(order.items) ? order.items : [];
         return `
           <div class="taptray-order-history-group">
-            <div class="taptray-order-history-meta">${escapeHtml(order.order_reference || "Past order")}</div>
+            <div class="taptray-order-history-meta">${escapeHtml(`${getTapTrayOrderShortNumber(order)} · ${getTapTrayOrderDisplayName(order)}`)}</div>
             ${pastItems.map((item) => renderTapTrayOrderRow(item, {
               locked: true,
               actionLabel: "Closed",
@@ -1731,6 +1779,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.taptrayActiveOrders = orders;
     window.taptrayPastOrders = pastOrders;
     window.taptrayActiveOrder = order;
+    clearTapTrayCartForReturnedOrderIfMatched();
     updateTapTrayOrderBar();
     const surrogates = new Set(Object.keys(getTapTrayCart()));
     const activeItems = orders.flatMap((entry) => Array.isArray(entry?.items) ? entry.items : []);

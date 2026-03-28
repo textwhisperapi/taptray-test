@@ -1092,6 +1092,9 @@ body.is-resizing #sidebarContainer {
 
 .group-item .list-title {
   flex-grow: 1;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
   white-space: nowrap;
   /*LINE-HEIGHT: 2;*/
   overflow: hidden;
@@ -4238,6 +4241,8 @@ body.app-fullscreen .app-fullscreen-exit-btn {
 /* Owner name text */
 .list-header-row .list-title {
   flex: 1 1 auto;
+  font-size: 16px;
+  font-weight: 700;
   white-space: normal;         /* ✅ wrapping text */
   word-break: break-word;
   overflow: visible;

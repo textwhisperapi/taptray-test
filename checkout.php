@@ -122,6 +122,28 @@ $ttMerchantConfig = [
       gap: 8px;
       padding: 4px 12px 12px;
     }
+    .checkout-order-name {
+      padding: 0 12px 12px;
+    }
+    .checkout-order-name label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .checkout-order-name input {
+      width: 100%;
+      min-height: 44px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      font: inherit;
+      color: var(--text);
+      background: linear-gradient(180deg, #ffffff, #f9fbff);
+    }
     .checkout-item {
       display: grid;
       grid-template-columns: 52px minmax(0, 1fr) auto;
@@ -354,6 +376,10 @@ $ttMerchantConfig = [
           <h1>Review before payment</h1>
           <p class="checkout-sub">Phone wallet comes first. If the device has no default wallet path, TapTray will fall back to other payment options.</p>
         </div>
+        <div class="checkout-order-name">
+          <label for="checkoutOrderName">Order name</label>
+          <input id="checkoutOrderName" type="text" maxlength="120" placeholder="Your name, table, or pickup name">
+        </div>
         <div id="checkoutItems" class="checkout-items"></div>
       </section>
 
@@ -390,6 +416,29 @@ $ttMerchantConfig = [
       } catch {
         return {};
       }
+    }
+
+    function loadCheckoutOrderName() {
+      try {
+        return String(localStorage.getItem("taptray:order-name") || "").trim();
+      } catch {
+        return "";
+      }
+    }
+
+    function persistCheckoutOrderName(value) {
+      try {
+        const trimmed = String(value || "").trim();
+        if (trimmed) {
+          localStorage.setItem("taptray:order-name", trimmed);
+        } else {
+          localStorage.removeItem("taptray:order-name");
+        }
+      } catch {}
+    }
+
+    function getCheckoutOrderName() {
+      return String(document.getElementById("checkoutOrderName")?.value || "").trim();
     }
 
     function parsePrice(label) {
@@ -759,6 +808,7 @@ $ttMerchantConfig = [
       const totals = getCheckoutTotals(entries);
       return {
         cart: entries,
+        order_name: getCheckoutOrderName(),
         wallet: {
           requestedPath: walletLabel,
           detectedType: walletInfo?.type || "unknown",
@@ -777,6 +827,7 @@ $ttMerchantConfig = [
       const totals = getCheckoutTotals(entries);
       const payload = {
         reference: `preview_${Date.now()}`,
+        order_name: getCheckoutOrderName(),
         merchant_name: TAPTRAY_PAYMENT_CONTEXT.merchantName,
         currency: TAPTRAY_PAYMENT_CONTEXT.merchantCurrency,
         totals: {
@@ -894,6 +945,11 @@ $ttMerchantConfig = [
     }
 
     document.addEventListener("DOMContentLoaded", async () => {
+      const orderNameInput = document.getElementById("checkoutOrderName");
+      if (orderNameInput) {
+        orderNameInput.value = loadCheckoutOrderName();
+        orderNameInput.addEventListener("input", () => persistCheckoutOrderName(orderNameInput.value));
+      }
       renderCheckout();
       const note = document.getElementById("checkoutPrimaryNote");
       const primaryBtn = document.getElementById("checkoutPayNowBtn");

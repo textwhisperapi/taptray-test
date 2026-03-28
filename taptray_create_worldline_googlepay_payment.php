@@ -80,6 +80,7 @@ $merchantName = defined('TT_MERCHANT_NAME') ? (string) TT_MERCHANT_NAME : 'TapTr
 $merchantCountry = defined('TT_MERCHANT_COUNTRY') ? (string) TT_MERCHANT_COUNTRY : 'IS';
 $walletInfo = is_array($payload['wallet'] ?? null) ? $payload['wallet'] : [];
 $deviceInfo = is_array($payload['device'] ?? null) ? $payload['device'] : [];
+$orderName = trim((string) ($payload['order_name'] ?? ''));
 
 $normalizedItems = [];
 $totalMinor = 0;
@@ -167,6 +168,7 @@ $statusCategory = (string) ($payment['payment']['statusOutput']['statusCategory'
 
 $completedOrder = [
     'reference' => $orderReference,
+    'order_name' => $orderName,
     'created_at' => gmdate('c'),
     'merchant_name' => $merchantName,
     'merchant_country' => $merchantCountry,

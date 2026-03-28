@@ -122,6 +122,7 @@ $currency = defined('TT_MERCHANT_CURRENCY') ? (string) TT_MERCHANT_CURRENCY : 'I
 $merchantName = defined('TT_MERCHANT_NAME') ? (string) TT_MERCHANT_NAME : 'TapTray';
 $merchantCountry = defined('TT_MERCHANT_COUNTRY') ? (string) TT_MERCHANT_COUNTRY : 'IS';
 $wallet = is_array($payload['wallet'] ?? null) ? $payload['wallet'] : [];
+$orderName = trim((string) ($payload['order_name'] ?? ''));
 
 if (!defined('WL_SDK_AVAILABLE') || !WL_SDK_AVAILABLE) {
     tt_checkout_error('Worldline checkout is not available on this server yet. The wallet-first payment step is not wired to a live processor here yet.', 503);
@@ -148,6 +149,7 @@ $request->hostedCheckoutSpecificInput = $hostedInput;
 
 $_SESSION['taptray_pending_order'] = [
     'reference' => $orderReference,
+    'order_name' => $orderName,
     'created_at' => gmdate('c'),
     'merchant_name' => $merchantName,
     'merchant_country' => $merchantCountry,
