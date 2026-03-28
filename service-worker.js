@@ -1,4 +1,4 @@
-const swVersion = "v152" // TapTray test baseline
+const swVersion = "v161" // TapTray test baseline
 const USER_LOCALE = "en";  // adjust dynamically if you want
 const CACHE_NAME = `taptray-cache-${swVersion}`;
 const OFFLINE_URL = "/index.php";
@@ -159,31 +159,13 @@ self.addEventListener("install", (event) => {
 
 
 // --- ACTIVATE ---
-// self.addEventListener("activate", (event) => {
-//   event.waitUntil(
-//     caches.keys().then((keys) =>
-//       Promise.all(
-//         keys.map((k) => {
-//           if (![CACHE_NAME, PDF_CACHE, ANNO_CACHE, MUSIC_CACHE, LANG_CACHE].includes(k)) {
-//             return caches.delete(k);
-//           }
-//         })
-//       )
-//     )
-//   );
-//   self.clients.claim();
-// });
-
-
-
-// --- ACTIVATE ---
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then(async (keys) => {
       // 🧹 remove caches not in the current version set
       await Promise.all(
         keys.map((k) => {
-          if (![CACHE_NAME, PDF_CACHE, ANNO_CACHE, MUSIC_CACHE, LANG_CACHE, MANUAL_CACHE, EP_CACHE].includes(k)) {
+          if (![CACHE_NAME, PDF_CACHE, ANNO_CACHE, LANG_CACHE, MANUAL_CACHE, EP_CACHE].includes(k)) {
             return caches.delete(k);
           }
         })
@@ -339,7 +321,7 @@ if (
   return;
 }
   
-  // 🧠 Skip caching entirely for Cloudflare R2 resources (PDFs, annotations, music)
+  // 🧠 Skip caching entirely for Cloudflare R2 resources when needed
 //   if (
 //     url.hostname.includes("r2.dev") ||
 //     url.hostname.includes("r2-worker.textwhisper.workers.dev")
@@ -649,42 +631,6 @@ if (
     return;
   }
   
-
-
-  // Music files (Cloudflare only)
-  const isCloudflareMusicHost =
-    url.hostname === "audio.textwhisper.com" ||
-    url.hostname.endsWith(".r2.dev");
-  const isMusicExt = /\.(mid|midi|mp3|wav|ogg|m4a|flac|aac|aif|aiff|webm)(\?.*)?$/i.test(request.url);
-  if (isCloudflareMusicHost && isMusicExt) {
-    event.respondWith((async () => {
-      const cache = await caches.open(MUSIC_CACHE);
-      const cacheKey = request.url;
-
-      if (!navigator.onLine) {
-        const cached = await cache.match(cacheKey);
-        if (cached) {
-          return cached;
-        }
-        return new Response("", { status: 404 });
-      }
-
-      try {
-        const res = await fetch(request);
-        if (res.ok) {
-          await cache.put(cacheKey, res.clone());
-        }
-        return res;
-      } catch (err) {
-        console.warn("⚠️ SW fetch failed for music:", cacheKey, err);
-        const cached = await cache.match(cacheKey);
-        if (cached) return cached;
-        return new Response("", { status: 404 });
-      }
-    })());
-    return;
-  }
-
   // CDN assets
   if (
     request.url.includes("cdn.jsdelivr.net") ||

@@ -1838,9 +1838,6 @@ function selectItem(surrogate, token = null, listContainer = null) {
   }
 
   function resolvePreferredMainTab() {
-    const xmlModeActive = window.getPreferredScoreViewMode?.() === "xml";
-    if (xmlModeActive) return "pdfTab";
-
     const savedTab = localStorage.getItem("twActiveMainTab");
     if (savedTab === "pdfTab" || savedTab === "textTab") return savedTab;
 
@@ -2005,11 +2002,8 @@ function selectItem(surrogate, token = null, listContainer = null) {
       } else {
         window.loadPDFOffline(surrogate);
       }
-    }
-
-    // ✅ Refresh music tab (if open)
-    if (document.getElementById("musicTabContent")?.classList.contains("visible")) {
-      window.showMusicPanelForCurrentItem?.(surrogate);
+    } else {
+      window.taptrayRefreshItemDetails?.();
     }
 
     // ♻️ Background cache refresh (once per hour)

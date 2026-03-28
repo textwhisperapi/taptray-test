@@ -40,7 +40,7 @@ sec_session_start();
 $listOwnerUsername = $_SESSION['username'] ?? '';
 
 //Version is now se globally in service-worker.php
-$version = 'v152';
+$version = 'v161';
 
 
 header('Content-Type: text/html; charset=utf-8');
@@ -581,19 +581,11 @@ window.DEV_MODE = <?= (
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
 
-  <!--<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>-->
-  <!--<script src="/assets/jquery.min.js"></script>-->
-
-  <!-- ✅ Required URL (Now placed correctly) -->
   <meta property="og:url" content="https://textwhisper.com<?php echo $_SERVER['REQUEST_URI']; ?>" />
-  <!-- ✅ Facebook App ID (Optional) -->
   <!--meta property="fb:app_id" content="YOUR_FACEBOOK_APP_ID" /-->
 
-  <!-- Bootstrap & Styles -->
-  <!--<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">-->
   <link href="/assets/bootstrap.min.css" rel="stylesheet">
-  <!--<script src="/assets/bootstrap.bundle.min.js"></script>-->
-      
+
     <script src="/assets/bootstrap.bundle.min.js" defer></script>
     <script src="/assets/jquery.min.js?v=..." defer></script>
     <script src="/assets/pdf.min.js" defer></script>
@@ -1150,19 +1142,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <!-- Scripts -->
 
-<!--<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>-->
-<!--<script src="/assets/pdf.min.js"></script>-->
-
-<!--<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>-->
-<!--<script src="/assets/sortable.min.js"></script>-->
-
-
-
-
-
-
-
-<!--Service worker for offline mode-->
 <!-- Service worker for offline mode -->
 <script>
 window.appVersion = "<?= $version ?>";  
@@ -1381,8 +1360,8 @@ if (!$vapidKey) {
       }
     }
 
-    document.addEventListener("DOMContentLoaded", loadTapTrayActiveOrder);
     document.addEventListener("DOMContentLoaded", () => {
+      loadTapTrayActiveOrder();
       if (tapTrayOrderPollId !== null) return;
       tapTrayOrderPollId = window.setInterval(loadTapTrayActiveOrder, 5000);
     });
@@ -1440,9 +1419,11 @@ if (!$vapidKey) {
 <script src="/JSTextComments.js?v=<?= $version ?>" defer></script>
 <script src="/JSTextDrawing.js?v=<?= $version ?>" defer></script>
 <script src="/JSText.js?v=<?= $version ?>" defer></script>
-<script src="/JSFunctions.js?v=<?= $version ?>-status5" defer></script>
+<script src="/JSFunctions.js?v=<?= $version ?>" defer></script>
 <script src="/JSCreateImportPDFs.js?v=<?= $version ?>" defer></script>
 <script src="/JSDriveImport.js?v=<?= $version ?>" defer></script>
+<link rel="stylesheet" href="/JSItemDetails.css?v=<?= $version ?>">
+<script src="/JSItemDetails.js?v=<?= $version ?>" defer></script>
 <script src="/JSDrawingPDF.js?v=<?= $version ?>" defer></script>
 <script src="/JSPdfMarkers.js?v=<?= $version ?>" defer></script>
 <script src="/JSFunctions_Trimmer.js?v=<?= $version ?>" defer></script>
@@ -1459,214 +1440,6 @@ if (!$vapidKey) {
 
 
 <script>
-
-window.taptrayRefreshItemDetails = function taptrayRefreshItemDetails() {
-  const shellEl = document.getElementById("taptrayItemDetails");
-  const kickerEl = document.getElementById("ttItemKicker");
-  const priceWrapEl = document.getElementById("ttItemPriceWrap");
-  const imageFieldEl = document.getElementById("ttItemImageField");
-  const toggleRowEl = document.getElementById("ttItemToggleRow");
-  const notesBlockEl = document.getElementById("ttItemNotesBlock");
-  const titleEl = document.getElementById("ttItemTitle");
-  const notesEl = document.getElementById("ttItemNotesInput");
-  const shortDescEl = document.getElementById("ttItemShortDescription");
-  const detailedDescEl = document.getElementById("ttItemDetailedDescription");
-  const priceEl = document.getElementById("ttItemPrice");
-  const imageEl = document.getElementById("ttItemImage");
-  const allergensEl = document.getElementById("ttItemAllergens");
-  const mediaEl = document.getElementById("ttItemMedia");
-  if (!shellEl || !kickerEl || !priceWrapEl || !imageFieldEl || !toggleRowEl || !notesBlockEl || !titleEl || !notesEl || !shortDescEl || !detailedDescEl || !priceEl || !imageEl || !allergensEl || !mediaEl) return;
-
-  const rawText = String(window._T2_RAWTEXT || "").trim();
-  const rawTitle = document.getElementById("selectedItemTitle")?.textContent?.trim() || "";
-  const lines = rawText.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  const title = lines[0] || rawTitle || "Select an item";
-  const rest = lines.slice(1);
-
-  let shortDescription = "";
-  let detailedDescription = "";
-  let notesBody = "";
-  let price = "";
-  let imageUrl = "";
-  let allergens = "";
-
-  for (const line of rest) {
-    if (!imageUrl && /^https?:\/\/\S+\.(png|jpe?g|webp|gif)(\?\S*)?$/i.test(line)) {
-      imageUrl = line;
-      continue;
-    }
-    if (!price) {
-      const priceMatch = line.match(/(\d{1,4}(?:[.,]\d{2})?)\s?(?:kr|isk|eur|\$|€)\b/i);
-      if (priceMatch) price = priceMatch[0];
-    }
-    if (!allergens && /^allergens?\s*:/i.test(line)) {
-      allergens = line.replace(/^allergens?\s*:/i, "").trim();
-      continue;
-    }
-    if (!shortDescription) {
-      shortDescription = line;
-      continue;
-    }
-    detailedDescription += (detailedDescription ? "\n" : "") + line;
-  }
-
-  if (!detailedDescription) {
-    detailedDescription = rest.filter((line) => {
-      if (/^https?:\/\/\S+\.(png|jpe?g|webp|gif)(\?\S*)?$/i.test(line)) return false;
-      if (/^allergens?\s*:/i.test(line)) return false;
-      if (line.match(/(\d{1,4}(?:[.,]\d{2})?)\s?(?:kr|isk|eur|\$|€)\b/i)) return false;
-      return line !== shortDescription;
-    }).join("\n");
-  }
-
-  titleEl.textContent = title;
-  notesEl.value = notesBody;
-  shortDescEl.value = shortDescription;
-  detailedDescEl.value = detailedDescription;
-  priceEl.value = price;
-  imageEl.value = imageUrl;
-  allergensEl.value = allergens;
-
-  const canEdit = !!window.canEditCurrentSurrogate;
-  shellEl.classList.toggle("is-preview-only", !canEdit);
-  kickerEl.textContent = canEdit ? "Menu item details" : "Menu item preview";
-  priceWrapEl.hidden = !canEdit;
-  imageFieldEl.hidden = !canEdit;
-  toggleRowEl.hidden = !canEdit;
-  notesBlockEl.hidden = !canEdit;
-  shortDescEl.readOnly = !canEdit;
-  detailedDescEl.readOnly = !canEdit;
-  priceEl.readOnly = !canEdit;
-  imageEl.readOnly = !canEdit;
-  allergensEl.readOnly = !canEdit;
-  notesEl.readOnly = !canEdit;
-
-  if (imageUrl) {
-    mediaEl.innerHTML = `<img src="${imageUrl.replace(/"/g, '&quot;')}" alt="${title.replace(/"/g, '&quot;')}" style="width:100%;height:100%;object-fit:cover;display:block;">`;
-  } else {
-    mediaEl.innerHTML = '<div class="tt-item-media-placeholder">Food image preview</div>';
-  }
-};
-
-document.addEventListener("DOMContentLoaded", () => {
-  window.taptrayRefreshItemDetails?.();
-});
-
-const taptrayDetailStyle = document.createElement("style");
-taptrayDetailStyle.textContent = `
-  .tt-item-details { height: 100%; overflow: auto; padding: 18px; background: linear-gradient(180deg, #f5efe5 0%, #fbf7f0 52%, #eef6f2 100%); }
-  .tt-item-shell { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: minmax(280px, 420px) minmax(0, 1fr); gap: 22px; align-items: start; }
-  .tt-item-media { min-height: 320px; border-radius: 24px; overflow: hidden; background: linear-gradient(135deg, #f4d8bc, #f0eee8); border: 1px solid rgba(20, 17, 12, 0.12); box-shadow: 0 18px 40px rgba(20, 17, 12, 0.12); }
-  .tt-item-media.is-dragover { outline: 2px dashed rgba(176, 66, 29, 0.55); outline-offset: -12px; }
-  .tt-item-media.is-uploading::after { content: "Uploading image..."; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,248,235,0.88); color: #8a5c43; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
-  .tt-item-media-placeholder { height: 100%; min-height: 320px; display: flex; align-items: center; justify-content: center; color: #8a5c43; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-  .tt-item-main { padding: 20px 22px; border-radius: 24px; background: rgba(255,255,255,0.92); border: 1px solid rgba(20, 17, 12, 0.1); box-shadow: 0 18px 40px rgba(20, 17, 12, 0.08); }
-  .tt-item-details.is-preview-only .tt-item-main { max-width: 720px; }
-  .tt-item-header { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
-  .tt-item-kicker { font-size: 12px; font-weight: 700; color: #b0421d; letter-spacing: 0.08em; text-transform: uppercase; }
-  #ttItemTitle { margin: 8px 0 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.08; font-family: Georgia, serif; }
-  .tt-item-save-state { margin-top: 8px; font-size: 12px; font-weight: 600; color: #7a6a59; }
-  .tt-item-save-state[data-state="saving"] { color: #b07d27; }
-  .tt-item-save-state[data-state="error"] { color: #b0421d; }
-  .tt-item-preview-btn { margin-top: 12px; border: 1px solid rgba(176, 66, 29, 0.18); background: #fff7f1; color: #8e451f; border-radius: 999px; padding: 9px 14px; font-weight: 700; }
-  .tt-item-price-wrap { width: min(180px, 100%); }
-  .tt-item-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
-  .tt-field { display: flex; flex-direction: column; gap: 8px; }
-  .tt-field label { font-size: 13px; font-weight: 700; color: #5a5147; }
-  .tt-input, .tt-textarea { width: 100%; border: 1px solid rgba(20, 17, 12, 0.12); border-radius: 14px; padding: 12px 14px; font: inherit; background: #fff; }
-  .tt-textarea { resize: vertical; min-height: 116px; }
-  .tt-item-details.is-preview-only .tt-input[readonly],
-  .tt-item-details.is-preview-only .tt-textarea[readonly] { background: rgba(249, 244, 236, 0.85); color: #3d3027; border-color: rgba(20, 17, 12, 0.08); box-shadow: none; }
-  .tt-toggle-row { justify-content: center; gap: 14px; padding: 10px 0 0; }
-  .tt-check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
-  .tt-item-notes { margin-top: 18px; }
-  .tt-item-notes-label { font-size: 13px; font-weight: 700; color: #5a5147; margin-bottom: 8px; }
-  .tt-item-notes-input { min-height: 180px; background: #f8f4ed; line-height: 1.55; }
-  .list-sub-item { position: relative; display: grid !important; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; min-height: 82px; }
-  .group-contents .list-sub-item.active .item-title,
-  .group-contents .list-sub-item.active .item-summary { color: #fff !important; }
-  .group-contents .list-sub-item.active .item-summary { opacity: 0.88; }
-  .group-contents .list-sub-item.active .item-price-chip { background: rgba(255,255,255,0.16); color: #fff !important; border-color: rgba(255,255,255,0.28); }
-  .group-contents .list-sub-item.active .item-price-chip.is-placeholder { color: rgba(255,255,255,0.72) !important; }
-  .group-contents .list-sub-item.active .item-thumb { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.12); }
-  .group-contents .list-sub-item.active .item-thumb.is-placeholder { color: rgba(255,255,255,0.78); }
-  .group-contents .list-sub-item.active .taptray-order-btn { background: #fff; color: var(--skin-accent); border-color: rgba(255,255,255,0.36); }
-  .item-title { cursor: pointer; min-width: 0; color: var(--skin-text); font-weight: 800; font-size: 18px; line-height: 1.14; letter-spacing: -0.01em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .taptray-menu-row { display: grid; grid-template-columns: 62px minmax(0, 1fr) 84px; gap: 10px; align-items: center; width: 100%; }
-  .item-media-rail { display: flex; align-items: center; justify-content: center; align-self: stretch; }
-  .taptray-menu-copy { min-width: 0; min-height: 56px; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 0; }
-  .item-head { display: block; }
-  .item-price-chip { display: inline-flex; align-self: flex-start; margin-top: 1px; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--skin-accent) 10%, var(--skin-surface)); color: var(--skin-accent); font-size: 12px; line-height: 1.1; font-weight: 800; border: 1px solid color-mix(in srgb, var(--skin-accent) 14%, var(--skin-border)); white-space: nowrap; box-sizing: border-box; }
-  .item-price-chip.is-placeholder { background: var(--skin-surface-2); color: var(--skin-muted); border-color: var(--skin-border); font-weight: 600; }
-  .taptray-menu-copy .item-summary,
-  .taptray-menu-row .item-summary { font-size: 12px !important; line-height: 1.28; color: var(--skin-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 100%; }
-  .item-summary.is-placeholder { color: var(--skin-muted); font-style: italic; }
-  .item-action-square { display: grid; grid-template-rows: auto auto auto; gap: 4px; align-items: center; justify-items: stretch; width: 84px; }
-  .item-square-main { position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; }
-  .item-qty-badge { position: absolute; top: -4px; left: -4px; min-width: 16px; height: 16px; padding: 0 4px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: var(--skin-surface); color: var(--skin-text); font-size: 9px; font-weight: 800; border: 1px solid var(--skin-border); box-shadow: 0 3px 8px rgba(12,16,24,0.10); z-index: 2; }
-  .item-square-actions { display: inline-flex; width: 100%; gap: 6px; align-items: center; justify-content: center; }
-  .taptray-order-side-meta { width: 100%; text-align: right; font-size: 11px; line-height: 1.05; font-weight: 700; color: var(--skin-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .taptray-status-badge { min-width: 84px; width: 100%; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 4px 10px; border-radius: 999px; border: 1px solid #d7dde7; background: #f7f9fc; color: #2f3b52; font-size: 12px; font-weight: 800; line-height: 1.1; white-space: nowrap; }
-  .taptray-status-badge.is-queued { background: #fff1df; color: #9a5a18; border-color: #f0c99a; }
-  .taptray-status-badge.is-making { background: #fff0bf; color: #9a6a00; border-color: #ebd27b; }
-  .taptray-status-badge.is-ready { background: #5b8f79; color: #ffffff; border-color: #497664; }
-  .taptray-status-badge.is-closed { background: #eceff4; color: #536172; border-color: #cfd7e1; }
-  .item-square-action { min-width: 84px; width: 100%; min-height: 0; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 4px 10px; border-radius: 999px; border: 1px solid transparent; background: color-mix(in srgb, var(--skin-accent) 10%, var(--skin-surface)); color: var(--skin-accent); font-size: 12px; font-weight: 800; line-height: 1.1; white-space: nowrap; box-shadow: none; }
-  .item-square-action.is-remove { color: var(--skin-accent); }
-  .item-thumb { width: 60px; height: 60px; border-radius: 12px; overflow: hidden; background: var(--skin-surface-2); border: 1px solid var(--skin-border); flex-shrink: 0; box-shadow: inset 0 1px 0 rgba(255,255,255,0.35); }
-  .item-action-square .item-thumb,
-  .item-media-rail .item-thumb { width: 60px; height: 60px; border-radius: 12px; }
-  .item-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .item-thumb.is-placeholder { display: flex; align-items: center; justify-content: center; color: var(--skin-muted); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; }
-  .taptray-order-btn { min-width: 0; width: 100%; justify-content: center; padding: 5px 8px; font-size: 12px; line-height: 1; font-weight: 700; border-radius: 999px; background: #5fbe7b; color: #fff; border: 1px solid #4ea66a; box-shadow: 0 1px 0 rgba(255,255,255,0.25) inset, 0 3px 8px rgba(12,16,24,0.06); }
-  .taptray-order-btn.is-selected { background: var(--skin-accent); color: #fff; border-color: var(--skin-accent); }
-  .taptray-menu-copy .item-price-chip { padding: 4px 10px; font-size: 11px; font-weight: 700; }
-  .item-menu-wrapper { justify-self: end; display: none; }
-  body.edit-mode .item-menu-wrapper { display: block; }
-  .item-expand-row { margin: -2px 0 8px; }
-  .item-expand-panel { display: block; width: 100%; padding: 14px; border-radius: 18px; background: linear-gradient(180deg, var(--skin-surface) 0%, var(--skin-surface-2) 100%); border: 1px solid var(--skin-border); box-shadow: var(--skin-shadow); }
-  .item-expand-panel[hidden] { display: none !important; }
-  .taptray-tree-item-loading, .taptray-tree-item-error { padding: 8px 2px; color: var(--skin-muted); font-size: 14px; }
-  .taptray-tree-item-body { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; align-items: start; }
-  .taptray-tree-item-media { width: 120px; overflow: hidden; border-radius: 18px; background: var(--skin-surface-3); border: 1px solid var(--skin-border); display: block; align-self: start; }
-  .taptray-tree-item-media img { width: 100%; height: auto; max-height: 240px; object-fit: contain; object-position: center top; display: block; background: rgba(255,255,255,0.6); }
-  .taptray-tree-item-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--skin-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
-  .taptray-tree-item-copy { min-width: 0; }
-  .taptray-tree-item-title { color: var(--skin-text); font-size: 22px; line-height: 1.1; font-weight: 800; margin-bottom: 6px; }
-  .taptray-tree-item-price { color: var(--skin-accent); font-size: 15px; font-weight: 800; margin-bottom: 8px; }
-  .taptray-tree-item-description { color: var(--skin-text); line-height: 1.5; }
-  .taptray-tree-item-description.is-empty { color: var(--skin-muted); font-style: italic; }
-  .taptray-tree-item-meta { margin-top: 10px; color: var(--skin-muted); font-size: 13px; }
-  .taptray-order-bar { margin-top: 8px; border-radius: 14px; overflow: hidden; background: var(--skin-surface); border: 1px solid var(--skin-border); box-shadow: 0 6px 14px rgba(31, 42, 46, 0.08); }
-  .taptray-order-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; background: linear-gradient(180deg, var(--skin-surface-2), var(--skin-surface)); }
-  .taptray-order-toggle { min-width: 0; display: inline-flex; align-items: center; gap: 10px; padding: 0; border: 0; background: transparent; text-align: left; color: inherit; }
-  .taptray-order-chevron { width: 18px; text-align: center; color: var(--skin-muted); font-size: 14px; }
-  .taptray-order-copy { min-width: 0; display: flex; flex-direction: column; }
-  .taptray-order-title { font-size: 14px; font-weight: 800; color: var(--skin-text); }
-  .taptray-order-meta { font-size: 14px; color: var(--skin-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .taptray-pay-btn { border: 1px solid #ba6232; background: linear-gradient(180deg, #dd8b4f 0%, #c26a37 100%); color: #fff; border-radius: 999px; padding: 9px 16px; font-size: 14px; font-weight: 800; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
-  .taptray-pay-btn[disabled] { opacity: 0.45; }
-  .taptray-order-items { display: grid; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--skin-border); background: var(--skin-surface); }
-  .taptray-order-item { padding: 8px 10px; border-radius: 12px; background: var(--skin-surface-2); border: 1px solid var(--skin-border); }
-  .taptray-order-item-title { font-size: 13px; font-weight: 700; color: var(--skin-text); line-height: 1.2; }
-  .taptray-order-item-meta { margin-top: 2px; font-size: 12px; color: var(--skin-muted); }
-  .taptray-order-list-item { min-height: 88px; }
-  .taptray-order-list-item .taptray-menu-row { pointer-events: none; }
-  .taptray-order-list-item .item-action-square,
-  .taptray-order-list-item .item-square-action { pointer-events: auto; }
-  .taptray-order-history { margin-top: 6px; border-top: 1px solid var(--skin-border); padding-top: 8px; }
-  .taptray-order-history-title { cursor: pointer; font-size: 12px; font-weight: 800; color: var(--skin-muted); list-style: none; }
-  .taptray-order-history-title::-webkit-details-marker { display: none; }
-  .taptray-order-history-title::before { content: "▸"; display: inline-block; margin-right: 6px; color: var(--skin-muted); }
-  .taptray-order-history[open] .taptray-order-history-title::before { content: "▾"; }
-  .taptray-order-history-group { margin-top: 8px; }
-  .taptray-order-history-meta { margin: 0 0 6px; font-size: 11px; font-weight: 700; color: var(--skin-muted); }
-  @media (max-width: 720px) { .list-sub-item { grid-template-columns: minmax(0, 1fr) auto; min-height: 76px; } .taptray-menu-row { grid-template-columns: 52px minmax(0, 1fr) 84px; gap: 8px; } .item-title { font-size: 16px; } .taptray-menu-copy .item-summary, .taptray-menu-row .item-summary { font-size: 12px !important; line-height: 1.25; } .item-action-square { width: 84px; } .item-square-main { width: 50px; height: 50px; } .item-qty-badge { min-width: 14px; height: 14px; font-size: 8px; top: -4px; left: -4px; } .taptray-status-badge { min-width: 84px; width: 100%; padding: 4px 8px; font-size: 12px; line-height: 1.1; white-space: nowrap; } .item-square-action { min-width: 84px; width: 100%; min-height: 0; padding: 4px 8px; font-size: 12px; line-height: 1.1; white-space: nowrap; } .item-thumb, .item-action-square .item-thumb, .item-media-rail .item-thumb { width: 50px; height: 50px; } .taptray-order-btn { padding: 5px 6px; font-size: 12px; } .taptray-order-title { font-size: 13px; } .taptray-order-meta { font-size: 14px; } .item-menu-wrapper { grid-column: 2; grid-row: 1; } .taptray-tree-item-body { grid-template-columns: 92px minmax(0, 1fr); gap: 10px; } .taptray-tree-item-media { width: 92px; } .taptray-tree-item-media img { max-height: 184px; } .taptray-tree-item-title { font-size: 18px; } }
-  @media (max-width: 980px) { .tt-item-shell { grid-template-columns: 1fr; } }
-  @media (max-width: 720px) { .tt-item-details { padding: 10px; } .tt-item-main { padding: 16px; } .tt-item-grid { grid-template-columns: 1fr; } .tt-item-header { flex-direction: column; } .tt-item-price-wrap { width: 100%; } }
-`;
-document.head.appendChild(taptrayDetailStyle);
-
 // to do: Move those scripts to script funtion
 
 function applyFontSize(size) {

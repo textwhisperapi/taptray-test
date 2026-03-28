@@ -1603,7 +1603,6 @@ function updateTapTrayOrderBar() {
   const chevron = document.getElementById("taptrayOrderChevron");
   if (!bar || !title || !meta || !payBtn || !itemsHost || !toggleBtn || !chevron) return;
 
-  const activeOrder = getTapTrayActiveOrder();
   const activeOrders = getTapTrayActiveOrders();
   const pastOrders = getTapTrayPastOrders();
   const cart = getTapTrayCart();
@@ -1611,7 +1610,6 @@ function updateTapTrayOrderBar() {
   const activeEntries = activeOrders.flatMap((order) => Array.isArray(order.items) ? order.items.map((item) => ({
     ...item,
     _taptrayOrderStatus: order.status || "in_process",
-    _taptrayOrderReference: order.order_reference || "",
     _taptrayOrderMeta: `${getTapTrayOrderShortNumber(order)} · ${getTapTrayOrderDisplayName(order)}`,
   })) : []);
   const totalQty = activeEntries.reduce((sum, item) => sum + Number(item?.quantity || 0), 0)
@@ -1645,7 +1643,6 @@ function updateTapTrayOrderBar() {
   const priceText = totalPrice > 0 ? ` · ${Math.round(totalPrice)}` : "";
   if (activeOrders.length === 1) {
     title.textContent = "Order";
-    meta.textContent = getTapTrayOrderDisplayName(activeOrders[0]);
     meta.textContent = `${getTapTrayOrderShortNumber(activeOrders[0])} · ${getTapTrayOrderDisplayName(activeOrders[0])}`;
   } else {
     title.textContent = "Order";
