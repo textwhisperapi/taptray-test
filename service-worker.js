@@ -4,7 +4,6 @@ const CACHE_NAME = `taptray-cache-${swVersion}`;
 const OFFLINE_URL = "/index.php";
 const PDF_CACHE = "taptray-offline-items";
 const ANNO_CACHE = "taptray-annotations";
-const MUSIC_CACHE = "taptray-media-files";
 const LANG_CACHE = "taptray-lang";
 const MANUAL_CACHE = "taptray-cache-manual";
 const EP_CACHE = "taptray-event-planner";
@@ -28,9 +27,6 @@ const ASSETS_TO_CACHE = [
   `/myStyles.css?v=${swVersion}`,
   `/myStylesText.css?v=${swVersion}`,
   `/myStylesPalette.css?v=${swVersion}`,
-  `/musicPanel.css?v=${swVersion}`,
-  `/musicPanel.js?v=${swVersion}`,
-
   // Vendor essentials
   "/assets/bootstrap.min.css",
   "/assets/bootstrap.bundle.min.js",
@@ -65,7 +61,7 @@ self.addEventListener("push", (event) => {
     title: "New message",
     body: "You have a new alert.",
     url: "/",
-    sound: "ding"
+    sound: "silent"
   };
 
   let data = fallback;
@@ -84,24 +80,15 @@ self.addEventListener("push", (event) => {
   const targetUrl = typeof data.url === "string" && data.url.trim() ? data.url : "/";
   const title = data.title || fallback.title;
   const body = data.body || fallback.body;
-  const sound = data.sound || "ding";
-
   event.waitUntil((async () => {
     await self.registration.showNotification(title, {
       body,
       icon: "/img/wrt.png",
       badge: "/img/wrt.png",
-      data: { url: targetUrl, sound },
+      data: { url: targetUrl },
       renotify: true,
       tag: `chat-alert-${Date.now()}`
     });
-
-    if (sound !== "silent") {
-      const clientList = await clients.matchAll({ type: "window", includeUncontrolled: true });
-      clientList.forEach((client) => {
-        client.postMessage({ type: "play-ding", count: 1 });
-      });
-    }
   })());
 });
 

@@ -18,20 +18,6 @@ document.addEventListener("DOMContentLoaded", function () {
   
 
     navigator.serviceWorker?.addEventListener("message", event => {
-      if (event.data?.type === "play-ding") {
-        const count = Math.min(event.data.count || 0, 5); // Safe max of 5
-        const delay = 800; // ms between dings
-    
-        for (let i = 0; i < count; i++) {
-          setTimeout(() => {
-            const audio = new Audio("/sounds/ding.mp3");
-            audio.play().catch(err => {
-              console.warn("🔇 Audio play failed:", err);
-            });
-          }, i * delay);
-        }
-        return;
-      }
       if (event.data?.type === "navigate-to" && event.data?.url) {
         window.location.href = String(event.data.url);
       }

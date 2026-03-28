@@ -98,8 +98,8 @@ overlay.addEventListener("drop", async (e) => {
 
   const ext = file.name.split(".").pop().toLowerCase();
   const type = getUploadType(ext);
-  if (!type || !["pdf", "musicxml", "audio", "midi"].includes(type)) {
-    return alert("❌ Only PDF, MusicXML, audio, or MIDI files here");
+  if (!type || !["pdf", "audio", "midi"].includes(type)) {
+    return alert("❌ Only PDF, audio, or MIDI files here");
   }
 
   const surrogate = window.currentSurrogate;
@@ -137,7 +137,6 @@ if (pdfTabEl) {
 function getUploadType(ext) {
   const audioExts = ["mp3", "wav", "ogg", "m4a", "flac", "aac", "aif", "aiff", "webm"];
   if (ext === "pdf") return "pdf";
-  if (["xml", "musicxml", "mxl"].includes(ext)) return "musicxml";
   if (["mid", "midi"].includes(ext)) return "midi";
   if (audioExts.includes(ext)) return "audio";
   return null;
@@ -176,7 +175,7 @@ async function handleFileUpload(file, surrogate, type) {
     return;
   }
 
-  const sizeLimits = { pdf: 30, musicxml: 10, midi: 2, audio: 100 };
+  const sizeLimits = { pdf: 30, midi: 2, audio: 100 };
   const limit = (sizeLimits[type] || 3) * 1024 * 1024;
   if (file.size > limit) {
     if (!batchMode) {
@@ -188,7 +187,7 @@ async function handleFileUpload(file, surrogate, type) {
     return;
   }
 
-  // Cloudflare-only upload pipeline (pdf + musicxml + audio + midi)
+  // Cloudflare-only upload pipeline (pdf + audio + midi)
   let key;
   if (type === "pdf") {
     key = `${owner}/pdf/temp_pdf_surrogate-${surrogate}.pdf`;
@@ -235,11 +234,6 @@ async function handleFileUpload(file, surrogate, type) {
             });
           } catch (err) {
             console.warn("⚠️ PDF general log failed:", err?.message || err);
-          }
-        } else if (type === "musicxml") {
-          window.twMusicXml?.refreshPdfTabXmlState?.(surrogate);
-          if (window.currentActiveTab === "pdfTab") {
-            showFlashMessage?.(`✅ Playable score ready: ${file.name}`);
           }
         } else if (type === "midi" && window.addMidiToFooterMenu) {
           window.addMidiToFooterMenu(file.name, `https://pub-1afc23a510c147a5a857168f23ff6db8.r2.dev/${key}`);

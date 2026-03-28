@@ -1561,6 +1561,7 @@ function renderTapTrayOrderRow(item, options = {}) {
     : `<div class="item-price-chip is-placeholder">Set price</div>`;
   const actionLabel = String(options.actionLabel || "").trim();
   const statusClass = getTapTrayStatusClass(options.status || actionLabel);
+  const orderMeta = String(options.orderMeta || "").trim();
   const actionHtml = options.locked
     ? `<div class="taptray-status-badge ${statusClass}" aria-label="${escapeHtml(actionLabel || "Making")}">${escapeHtml(actionLabel || "Making")}</div>`
     : `<button class="item-square-action" onclick="taptrayReduceItem(this, ${Number(surrogate || 0)}); event.stopPropagation();">${escapeHtml(actionLabel || "Cancel")}</button>`;
@@ -1585,6 +1586,7 @@ function renderTapTrayOrderRow(item, options = {}) {
           <div class="item-square-actions">
             ${actionHtml}
           </div>
+          ${orderMeta ? `<div class="taptray-order-side-meta">${escapeHtml(orderMeta)}</div>` : ""}
         </div>
       </div>
     </div>
@@ -1593,12 +1595,13 @@ function renderTapTrayOrderRow(item, options = {}) {
 
 function updateTapTrayOrderBar() {
   const bar = document.getElementById("taptrayOrderBar");
+  const title = document.getElementById("taptrayOrderTitle");
   const meta = document.getElementById("taptrayOrderMeta");
   const payBtn = document.getElementById("taptrayPayBtn");
   const itemsHost = document.getElementById("taptrayOrderItems");
   const toggleBtn = document.getElementById("taptrayOrderToggle");
   const chevron = document.getElementById("taptrayOrderChevron");
-  if (!bar || !meta || !payBtn || !itemsHost || !toggleBtn || !chevron) return;
+  if (!bar || !title || !meta || !payBtn || !itemsHost || !toggleBtn || !chevron) return;
 
   const activeOrder = getTapTrayActiveOrder();
   const activeOrders = getTapTrayActiveOrders();
@@ -1609,6 +1612,7 @@ function updateTapTrayOrderBar() {
     ...item,
     _taptrayOrderStatus: order.status || "in_process",
     _taptrayOrderReference: order.order_reference || "",
+    _taptrayOrderMeta: `${getTapTrayOrderShortNumber(order)} · ${getTapTrayOrderDisplayName(order)}`,
   })) : []);
   const totalQty = activeEntries.reduce((sum, item) => sum + Number(item?.quantity || 0), 0)
     + cartEntries.reduce((sum, item) => sum + Number(item?.quantity || 0), 0);
@@ -1622,6 +1626,7 @@ function updateTapTrayOrderBar() {
   if (totalQty <= 0 && pastOrders.length <= 0) {
     bar.hidden = true;
     bar.dataset.expanded = "0";
+    title.textContent = "Order";
     meta.textContent = "No items selected";
     payBtn.disabled = true;
     itemsHost.hidden = true;
@@ -1639,8 +1644,11 @@ function updateTapTrayOrderBar() {
   }
   const priceText = totalPrice > 0 ? ` · ${Math.round(totalPrice)}` : "";
   if (activeOrders.length === 1) {
+    title.textContent = "Order";
+    meta.textContent = getTapTrayOrderDisplayName(activeOrders[0]);
     meta.textContent = `${getTapTrayOrderShortNumber(activeOrders[0])} · ${getTapTrayOrderDisplayName(activeOrders[0])}`;
   } else {
+    title.textContent = "Order";
     const statusText = activeEntries.length ? `${activeOrders.length} active order${activeOrders.length === 1 ? "" : "s"} · ` : "";
     meta.textContent = `${statusText}${totalQty} item${totalQty === 1 ? "" : "s"}${priceText}`;
   }
@@ -1662,6 +1670,7 @@ function updateTapTrayOrderBar() {
               locked: true,
               actionLabel: "Closed",
               status: "closed",
+              orderMeta: `${getTapTrayOrderShortNumber(order)} · ${getTapTrayOrderDisplayName(order)}`,
             })).join("")}
           </div>
         `;
@@ -1673,6 +1682,7 @@ function updateTapTrayOrderBar() {
       locked: true,
       actionLabel: getTapTrayLockedLabel(item?._taptrayOrderStatus),
       status: item?._taptrayOrderStatus || "making",
+      orderMeta: item?._taptrayOrderMeta || "",
     })),
     ...cartEntries.map((item) => renderTapTrayOrderRow(item, {
       locked: false,

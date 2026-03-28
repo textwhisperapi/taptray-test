@@ -593,14 +593,11 @@ window.DEV_MODE = <?= (
   <!--<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">-->
   <link href="/assets/bootstrap.min.css" rel="stylesheet">
   <!--<script src="/assets/bootstrap.bundle.min.js"></script>-->
-  <!-----for the audio recorder----->
-  <!--<script src="https://unpkg.com/fix-webm-duration"></script>-->
       
     <script src="/assets/bootstrap.bundle.min.js" defer></script>
     <script src="/assets/jquery.min.js?v=..." defer></script>
     <script src="/assets/pdf.min.js" defer></script>
     <script src="/assets/sortable.min.js" defer></script>
-    <script src="https://unpkg.com/fix-webm-duration" defer></script>
 
     <script src="https://apis.google.com/js/api.js" defer></script>
     <script src="https://accounts.google.com/gsi/client" defer></script>
@@ -1007,7 +1004,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <button id="taptrayOrderToggle" class="taptray-order-toggle" type="button" aria-expanded="false">
                   <span id="taptrayOrderChevron" class="taptray-order-chevron">▸</span>
                   <span class="taptray-order-copy">
-                    <div class="taptray-order-title">Order</div>
+                    <div id="taptrayOrderTitle" class="taptray-order-title">Order</div>
                     <div id="taptrayOrderMeta" class="taptray-order-meta">No items selected</div>
                   </span>
                 </button>
@@ -1163,9 +1160,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-
-
-<!--<script src="/assets/compactMidiPlayer.js?v=<?= $version ?>"></script>-->
 
 
 <!--Service worker for offline mode-->
@@ -1401,7 +1395,6 @@ if (!$vapidKey) {
 
 
 
-<!-- include chat.php and musicPanel.php here -->
 <?php include_once __DIR__ . '/chat.php'; ?>
 
 
@@ -1447,7 +1440,7 @@ if (!$vapidKey) {
 <script src="/JSTextComments.js?v=<?= $version ?>" defer></script>
 <script src="/JSTextDrawing.js?v=<?= $version ?>" defer></script>
 <script src="/JSText.js?v=<?= $version ?>" defer></script>
-<script src="/JSFunctions.js?v=<?= $version ?>-status2" defer></script>
+<script src="/JSFunctions.js?v=<?= $version ?>-status5" defer></script>
 <script src="/JSCreateImportPDFs.js?v=<?= $version ?>" defer></script>
 <script src="/JSDriveImport.js?v=<?= $version ?>" defer></script>
 <script src="/JSDrawingPDF.js?v=<?= $version ?>" defer></script>
@@ -1608,10 +1601,11 @@ taptrayDetailStyle.textContent = `
   .taptray-menu-copy .item-summary,
   .taptray-menu-row .item-summary { font-size: 12px !important; line-height: 1.28; color: var(--skin-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 100%; }
   .item-summary.is-placeholder { color: var(--skin-muted); font-style: italic; }
-  .item-action-square { display: grid; grid-template-rows: auto auto; gap: 5px; align-items: center; justify-items: stretch; width: 84px; }
+  .item-action-square { display: grid; grid-template-rows: auto auto auto; gap: 4px; align-items: center; justify-items: stretch; width: 84px; }
   .item-square-main { position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; }
   .item-qty-badge { position: absolute; top: -4px; left: -4px; min-width: 16px; height: 16px; padding: 0 4px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: var(--skin-surface); color: var(--skin-text); font-size: 9px; font-weight: 800; border: 1px solid var(--skin-border); box-shadow: 0 3px 8px rgba(12,16,24,0.10); z-index: 2; }
   .item-square-actions { display: inline-flex; width: 100%; gap: 6px; align-items: center; justify-content: center; }
+  .taptray-order-side-meta { width: 100%; text-align: right; font-size: 11px; line-height: 1.05; font-weight: 700; color: var(--skin-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .taptray-status-badge { min-width: 84px; width: 100%; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 4px 10px; border-radius: 999px; border: 1px solid #d7dde7; background: #f7f9fc; color: #2f3b52; font-size: 12px; font-weight: 800; line-height: 1.1; white-space: nowrap; }
   .taptray-status-badge.is-queued { background: #fff1df; color: #9a5a18; border-color: #f0c99a; }
   .taptray-status-badge.is-making { background: #fff0bf; color: #9a6a00; border-color: #ebd27b; }
@@ -1948,11 +1942,6 @@ function applyEnvZoom(size) {
 //----
 
 
-  // 🎵 Scale music panels (floating + pinned)
-  scaleMusicPanel(size);
-
-//----
-
   // ✅ Scale chat selector dropdown (if it exists)
   scaleChatSelectors(size);
 
@@ -2005,68 +1994,6 @@ function scaleChatSelectors(size) {
 
 
 
-function scaleMusicPanel(size) {
-  const sidebar = document.getElementById("sidebarContainer");
-  const isDesktop = window.innerWidth >= 1200;
-  const sidebarWidth = sidebar ? Math.round(sidebar.getBoundingClientRect().width) : 0;
-
-  // Resize music panel to account for sidebar width on desktop
-  if (isDesktop && sidebarWidth) {
-    document.querySelectorAll(".music-panel").forEach(panel => {
-      const panelWidth = Math.max(200, window.innerWidth - sidebarWidth);
-      panel.style.left = `${sidebarWidth}px`;
-      panel.style.width = `${panelWidth}px`;
-    });
-  } else {
-    document.querySelectorAll(".music-panel").forEach(panel => {
-      panel.style.left = "";
-      panel.style.width = "";
-    });
-  }
-
-  // 🎧 Pinned or floating players
-  document.querySelectorAll(".musicPanel-floating, .musicPanel-bottomPinned").forEach(panel => {
-    panel.style.fontSize = size + "px";
-
-    // Buttons
-    panel.querySelectorAll(".player-btn").forEach(btn => {
-      btn.style.width  = (size * 2.2) + "px";
-      btn.style.height = (size * 2.2) + "px";
-      btn.style.fontSize = size + "px";
-    });
-
-    // Big play/pause button
-    panel.querySelectorAll(".player-btn.big").forEach(btn => {
-      btn.style.width  = (size * 2.8) + "px";
-      btn.style.height = (size * 2.8) + "px";
-      btn.style.fontSize = (size * 1.1) + "px";
-    });
-
-    // Speed selector
-    panel.querySelectorAll(".speed-select").forEach(sel => {
-      sel.style.fontSize = (size * 0.9) + "px";
-      sel.style.height = (size * 1.8) + "px";
-      sel.style.padding = (size * 0.2) + "px " + (size * 0.4) + "px";
-    });
-
-    // Progress bar
-    panel.querySelectorAll(".progress-bar").forEach(bar => {
-    //   bar.style.height = (size * 0.04) + "em";
-      bar.style.width = "100%"; // full stretch
-    });
-
-    // Time labels
-    panel.querySelectorAll(".time-labels span").forEach(span => {
-      span.style.fontSize = (size * 0.9) + "px";
-    });
-  });
-}
-
-
-
-
-
-
 document.addEventListener("DOMContentLoaded", () => {
   const slider = document.getElementById('envSizeSlider');
   if (!slider) return;
@@ -2079,18 +2006,15 @@ document.addEventListener("DOMContentLoaded", () => {
     applyEnvZoom(slider.value);
   }
   scaleChatSelectors(saved || slider.value);
-  scaleMusicPanel(saved || slider.value);
 
   // Listen for user changes
   slider.addEventListener('input', e => {
     applyEnvZoom(e.target.value);
   });
 
-  // Keep music panel aligned on viewport changes
   window.addEventListener("resize", () => {
     const current = localStorage.getItem('envZoom') || slider.value;
     syncAppLayoutMetrics();
-    scaleMusicPanel(current);
   });
 
   window.visualViewport?.addEventListener?.("resize", syncAppLayoutMetrics);
@@ -2127,8 +2051,6 @@ document.addEventListener("DOMContentLoaded", () => {
     sidebar.style.width = `${next}px`;
     sidebar.dataset.resized = "1";
     localStorage.setItem("sidebarWidth", String(next));
-    const size = localStorage.getItem('envZoom') || 16;
-    scaleMusicPanel(size);
     rafId = null;
   };
 
