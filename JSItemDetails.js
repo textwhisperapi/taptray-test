@@ -230,9 +230,9 @@ logStep("JSItemDetails.js executed");
   }
 
   function bindImageInteractions(surrogate) {
-    const shell = document.querySelector(".tt-item-shell");
     const mediaEl = document.getElementById("ttItemMedia");
     const imageEl = document.getElementById("ttItemImage");
+    const shell = mediaEl?.closest(".tt-item-shell");
     if (!shell || !mediaEl || !imageEl) return;
 
     const setBusy = (busy) => {
@@ -258,6 +258,19 @@ logStep("JSItemDetails.js executed");
       }
     };
 
+    const handlePaste = (eventObj) => {
+      const file = ttGetImageFileFromTransfer(eventObj.clipboardData);
+      if (!file) return;
+      const target = eventObj.target;
+      if (target instanceof Element) {
+        const insideItemShell = target.closest(".tt-item-shell") === shell;
+        if (!insideItemShell) return;
+      }
+      eventObj.preventDefault();
+      eventObj.stopPropagation();
+      uploadFile(file);
+    };
+
     mediaEl.addEventListener("dragover", (eventObj) => {
       eventObj.preventDefault();
       mediaEl.classList.add("is-dragover");
@@ -271,12 +284,9 @@ logStep("JSItemDetails.js executed");
       const file = ttGetImageFileFromTransfer(eventObj.dataTransfer);
       if (file) uploadFile(file);
     });
-    shell.addEventListener("paste", (eventObj) => {
-      const file = ttGetImageFileFromTransfer(eventObj.clipboardData);
-      if (!file) return;
-      eventObj.preventDefault();
-      uploadFile(file);
-    });
+    mediaEl.addEventListener("paste", handlePaste);
+    shell.addEventListener("paste", handlePaste);
+    document.addEventListener("paste", handlePaste, true);
   }
 
   function bindSettingsInputs(surrogate) {

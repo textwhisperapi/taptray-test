@@ -1,4 +1,4 @@
-const swVersion = "v171" // TapTray test baseline
+const swVersion = "v173" // TapTray test baseline
 const USER_LOCALE = "en";  // adjust dynamically if you want
 const CACHE_NAME = `taptray-cache-${swVersion}`;
 const OFFLINE_URL = "/index.php";
@@ -83,8 +83,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil((async () => {
     await self.registration.showNotification(title, {
       body,
-      icon: "/img/wrt.png",
-      badge: "/img/wrt.png",
+      icon: "/icons/wrt-v2.png",
+      badge: "/icons/wrt-v2.png",
       data: { url: targetUrl },
       renotify: true,
       tag: `chat-alert-${Date.now()}`
