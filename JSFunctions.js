@@ -1445,21 +1445,54 @@ function mergeTapTrayRowSettings(row, parsed) {
 }
 
 function getTapTrayCart() {
-  if (!window.taptrayCart) {
-    try {
-      const stored = JSON.parse(localStorage.getItem("taptray:cart") || "{}");
-      window.taptrayCart = stored && typeof stored === "object" ? stored : {};
-    } catch {
-      window.taptrayCart = {};
-    }
+  if (!window.taptrayCart || typeof window.taptrayCart !== "object") {
+    window.taptrayCart = {};
   }
   return window.taptrayCart;
 }
 
 function persistTapTrayCart() {
-  try {
-    localStorage.setItem("taptray:cart", JSON.stringify(getTapTrayCart()));
-  } catch {}
+  return getTapTrayCart();
+}
+
+function tapTrayCartFromDraftOrder(draftOrder) {
+  const next = {};
+  const items = Array.isArray(draftOrder?.items) ? draftOrder.items : [];
+  items.forEach((item) => {
+    const key = String(item?.surrogate || "").trim();
+    if (!key) return;
+    next[key] = {
+      ...item,
+      surrogate: key,
+      quantity: Number(item?.quantity || 0),
+    };
+  });
+  return next;
+}
+
+function applyTapTrayDraftOrder(draftOrder) {
+  window.taptrayDraftOrder = draftOrder && typeof draftOrder === "object" ? draftOrder : null;
+  window.taptrayCart = tapTrayCartFromDraftOrder(window.taptrayDraftOrder);
+  return window.taptrayCart;
+}
+
+async function mutateTapTrayDraftOrder(action, item) {
+  const response = await fetch("/taptray_cart_update.php", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    credentials: "same-origin",
+    body: JSON.stringify({ action, item })
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data || !data.ok) {
+    throw new Error(data && data.error ? data.error : "TapTray could not update the order.");
+  }
+  applyTapTrayDraftOrder(data.draft_order || null);
+  document.dispatchEvent(new CustomEvent("taptray:cart-updated", { detail: { cart: getTapTrayCart() } }));
+  return data.draft_order || null;
 }
 
 function parseTapTrayPriceValue(label = "") {
@@ -1486,6 +1519,22 @@ function getTapTrayPastOrders() {
 
 function getTapTrayActiveOrder() {
   return getTapTrayActiveOrders()[0] || null;
+}
+
+function triggerTapTrayReadyAlert() {
+  const bar = document.getElementById("taptrayOrderBar");
+  const sidebar = document.getElementById("sidebarContainer");
+  if (!bar) return;
+  bar.classList.remove("is-ready-alert");
+  sidebar?.classList.remove("taptray-sidebar-ready-alert");
+  void bar.offsetWidth;
+  bar.classList.add("is-ready-alert");
+  sidebar?.classList.add("taptray-sidebar-ready-alert");
+  window.clearTimeout(window.tapTrayReadyAlertTimer);
+  window.tapTrayReadyAlertTimer = window.setTimeout(() => {
+    bar.classList.remove("is-ready-alert");
+    sidebar?.classList.remove("taptray-sidebar-ready-alert");
+  }, 1600);
 }
 
 function getTapTrayActiveOrderItem(surrogate) {
@@ -1518,15 +1567,6 @@ function clearTapTrayCartForReturnedOrderIfMatched() {
   const params = new URLSearchParams(window.location.search || "");
   const targetOrderRef = String(params.get("taptray_order") || "").trim();
   if (!targetOrderRef) return;
-  const matched = getTapTrayActiveOrders().some((order) =>
-    String(order?.order_reference || "").trim() === targetOrderRef
-  ) || getTapTrayPastOrders().some((order) =>
-    String(order?.order_reference || "").trim() === targetOrderRef
-  );
-  if (!matched) return;
-  try {
-    localStorage.removeItem("taptray:cart");
-  } catch {}
   window.taptrayCart = {};
 }
 
@@ -1732,66 +1772,76 @@ function updateTapTraySelectionButtons(surrogate) {
   });
 }
 
-window.taptraySelectItem = function taptraySelectItem(button, surrogate, token) {
+window.taptraySelectItem = async function taptraySelectItem(button, surrogate, token) {
   const row = button?.closest(".list-sub-item") || document.querySelector(`.list-sub-item[data-value="${CSS.escape(String(surrogate))}"]`);
   const title = row?.querySelector(".item-title, .item-subject")?.textContent?.replace(/^•\s*/, "").trim() || "Menu item";
   const priceLabel = String(row?.dataset?.priceLabel || "").trim();
   const shortDescription = String(row?.dataset?.shortDescription || row?.dataset?.publicDescription || "").trim();
   const detailedDescription = String(row?.dataset?.detailedDescription || "").trim();
   const imageUrl = String(row?.dataset?.imageUrl || "").trim();
-  const cart = getTapTrayCart();
-  const key = String(surrogate);
-  const current = cart[key] || { surrogate: key, token: String(token || ""), title, quantity: 0, price_label: priceLabel, short_description: shortDescription, detailed_description: detailedDescription, public_description: shortDescription, image_url: imageUrl };
-  current.quantity += 1;
-  current.title = title;
-  current.token = String(token || current.token || "");
-  current.price_label = priceLabel || current.price_label || "";
-  current.short_description = shortDescription || current.short_description || "";
-  current.detailed_description = detailedDescription || current.detailed_description || "";
-  current.public_description = current.short_description || current.public_description || "";
-  current.image_url = imageUrl || current.image_url || "";
-  cart[key] = current;
-  updateTapTraySelectionButtons(key);
-  updateTapTrayOrderBar();
-  persistTapTrayCart();
-  document.dispatchEvent(new CustomEvent("taptray:cart-updated", { detail: { cart } }));
-  showFlashMessage?.(`Added ${title}`);
-}
-
-window.taptrayReduceItem = function taptrayReduceItem(button, surrogate) {
-  const cart = getTapTrayCart();
-  const key = String(surrogate);
-  const current = cart[key];
-  if (!current) return;
-  current.quantity = Math.max(0, Number(current.quantity || 0) - 1);
-  if (current.quantity <= 0) {
-    delete cart[key];
-  } else {
-    cart[key] = current;
+  const payload = {
+    surrogate: Number(surrogate || 0),
+    token: String(token || ""),
+    title,
+    price_label: priceLabel,
+    short_description: shortDescription,
+    detailed_description: detailedDescription,
+    image_url: imageUrl,
+  };
+  try {
+    await mutateTapTrayDraftOrder("add", payload);
+    updateTapTraySelectionButtons(String(surrogate));
+    updateTapTrayOrderBar();
+    showFlashMessage?.(`Added ${title}`);
+  } catch (error) {
+    showFlashMessage?.(error?.message || "Could not update order.");
   }
-  updateTapTraySelectionButtons(key);
-  updateTapTrayOrderBar();
-  persistTapTrayCart();
-  document.dispatchEvent(new CustomEvent("taptray:cart-updated", { detail: { cart } }));
 }
 
-window.taptrayRemoveItem = function taptrayRemoveItem(button, surrogate) {
-  const cart = getTapTrayCart();
+window.taptrayReduceItem = async function taptrayReduceItem(button, surrogate) {
   const key = String(surrogate);
-  if (!cart[key]) return;
-  delete cart[key];
-  updateTapTraySelectionButtons(key);
-  updateTapTrayOrderBar();
-  persistTapTrayCart();
-  document.dispatchEvent(new CustomEvent("taptray:cart-updated", { detail: { cart } }));
+  const current = getTapTrayCart()[key];
+  if (!current) return;
+  try {
+    await mutateTapTrayDraftOrder("reduce", current);
+    updateTapTraySelectionButtons(key);
+    updateTapTrayOrderBar();
+  } catch (error) {
+    showFlashMessage?.(error?.message || "Could not update order.");
+  }
+}
+
+window.taptrayRemoveItem = async function taptrayRemoveItem(button, surrogate) {
+  const key = String(surrogate);
+  const current = getTapTrayCart()[key];
+  if (!current) return;
+  try {
+    await mutateTapTrayDraftOrder("remove", current);
+    updateTapTraySelectionButtons(key);
+    updateTapTrayOrderBar();
+  } catch (error) {
+    showFlashMessage?.(error?.message || "Could not update order.");
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("taptray:cart-updated", () => updateTapTrayOrderBar());
   document.addEventListener("taptray:active-order-updated", (event) => {
+    const draftOrder = event?.detail?.draftOrder && typeof event.detail.draftOrder === "object" ? event.detail.draftOrder : null;
     const orders = Array.isArray(event?.detail?.orders) ? event.detail.orders : [];
     const pastOrders = Array.isArray(event?.detail?.pastOrders) ? event.detail.pastOrders : [];
     const order = event?.detail?.order && typeof event.detail.order === "object" ? event.detail.order : null;
+    const hasSeenReadyStateBefore = window.tapTrayReadyRefs instanceof Set;
+    const previousReadyRefs = hasSeenReadyStateBefore ? window.tapTrayReadyRefs : new Set();
+    const nextReadyRefs = new Set(
+      orders
+        .filter((entry) => String(entry?.status || "").trim() === "ready")
+        .map((entry) => String(entry?.order_reference || "").trim())
+        .filter(Boolean)
+    );
+    const hasNewReadyOrder = [...nextReadyRefs].some((ref) => !previousReadyRefs.has(ref));
+    window.tapTrayReadyRefs = nextReadyRefs;
+    applyTapTrayDraftOrder(draftOrder);
     window.taptrayActiveOrders = orders;
     window.taptrayPastOrders = pastOrders;
     window.taptrayActiveOrder = order;
@@ -1804,6 +1854,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (key) surrogates.add(key);
     });
     surrogates.forEach((key) => updateTapTraySelectionButtons(key));
+    if (hasSeenReadyStateBefore && hasNewReadyOrder) {
+      triggerTapTrayReadyAlert();
+    }
     openTapTrayOrderBarFromDeepLink();
   });
   updateTapTrayOrderBar();

@@ -362,7 +362,7 @@ logStep("JSItemDetails.js executed");
     });
   }
 
-  window.showTaptrayItemPreview = function showTaptrayItemPreview(surrogate = null, token = null) {
+  window.openRecipePreview = function openRecipePreview(surrogate = null, token = null) {
     const itemSurrogate = String(surrogate || window.currentSurrogate || "").trim();
     const listToken = String(token || window.currentListToken || "").trim();
     const ownerToken = String(
@@ -509,7 +509,7 @@ logStep("JSItemDetails.js executed");
     bindNotesInput(surrogate);
     loadSavedSettings(surrogate);
     document.getElementById("ttItemPreviewBtn")?.addEventListener("click", () => {
-      window.showTaptrayItemPreview?.(surrogate, window.currentListToken || "");
+      window.openRecipePreview?.(surrogate, window.currentListToken || "");
     });
   }
 

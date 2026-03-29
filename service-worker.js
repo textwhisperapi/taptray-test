@@ -1,4 +1,4 @@
-const swVersion = "v161" // TapTray test baseline
+const swVersion = "v171" // TapTray test baseline
 const USER_LOCALE = "en";  // adjust dynamically if you want
 const CACHE_NAME = `taptray-cache-${swVersion}`;
 const OFFLINE_URL = "/index.php";

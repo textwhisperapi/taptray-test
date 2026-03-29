@@ -47,12 +47,27 @@ function tt_menu_orders_display_name(array $order): string {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TapTray Orders</title>
   <style>
-    body { margin: 0; font-family: system-ui, sans-serif; background: #f4f7fb; color: #18212f; }
-    .shell { max-width: 1100px; margin: 0 auto; padding: 24px 16px 40px; }
+    :root {
+      --bg: #eef2f7;
+      --panel: #ffffff;
+      --panel-border: #d8dfef;
+      --ink: #18212f;
+      --muted: #637188;
+      --soft: #f6f9fd;
+      --shadow: 0 18px 40px rgba(31,42,70,.08);
+    }
+    body { margin: 0; font-family: system-ui, sans-serif; background: linear-gradient(180deg, #f4f7fb 0%, #edf2f8 100%); color: var(--ink); }
+    .shell { max-width: 1320px; margin: 0 auto; padding: 24px 16px 40px; }
     .top { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 18px; }
+    .top-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
     .brand { font-size: 14px; text-transform: uppercase; letter-spacing: .08em; color: #637188; font-weight: 800; }
-    .card { background: #fff; border: 1px solid #d8dfef; border-radius: 22px; box-shadow: 0 18px 40px rgba(31,42,70,.08); padding: 18px; margin-bottom: 14px; }
-    .order-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+    .orders-grid { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
+    .card { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 24px; box-shadow: var(--shadow); padding: 14px; margin-bottom: 0; display: grid; gap: 10px; align-self: start; }
+    .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0 12px; color: #4d5b6f; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .order-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+    .order-title { display: flex; gap: 10px; align-items: baseline; min-width: 0; flex-wrap: wrap; }
+    .order-title strong { font-size: 20px; line-height: 1.15; display: block; }
+    .order-number { color: var(--ink); font-size: 18px; line-height: 1.15; font-weight: 800; }
     .pill { display: inline-flex; padding: 8px 12px; border-radius: 999px; font-size: 13px; font-weight: 800; border: 1px solid transparent; }
     #ordersRoot .card .order-head > .pill.queued { background: #fff6cc !important; color: #967200 !important; border-color: #ecd98a !important; }
     #ordersRoot .card .order-head > .pill.making { background: #fff0bf !important; color: #9a6a00 !important; border-color: #ebd27b !important; }
@@ -62,29 +77,43 @@ function tt_menu_orders_display_name(array $order): string {
     .item { padding: 10px 12px; border-radius: 14px; background: #f8fbff; border: 1px solid #e0e6f2; }
     .item-label { min-width: 0; }
     .item-detail-link { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid #d8dfef; background: #ffffff; color: #42516b; font-size: 12px; font-weight: 700; text-decoration: none; white-space: nowrap; }
-    .actions { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
-    .actions-main { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    .actions-side { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    button { min-height: 40px; border-radius: 999px; border: 1px solid #bcd3f5; padding: 0 16px; cursor: pointer; font-weight: 700; background: #e9f2ff; color: #1f4b8f; }
-    #ordersRoot .card .actions button[data-action] { box-shadow: none !important; }
-    #ordersRoot .card .actions button[data-action="making"]:not(.is-active):not(.is-muted) {
+    .order-body { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 12px; align-items: start; }
+    .actions-rail { display: grid; gap: 8px; align-content: start; justify-items: stretch; padding-top: 6px; }
+    .item-area { display: grid; gap: 6px; min-width: 0; }
+    .inline-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: flex-end; align-self: center; }
+    button { min-height: 34px; border-radius: 999px; border: 1px solid #bcd3f5; padding: 0 11px; cursor: pointer; font-weight: 700; background: #e9f2ff; color: #1f4b8f; display: inline-flex; align-items: center; justify-content: center; line-height: 1; box-sizing: border-box; }
+    .actions-rail button[data-action] { width: 100%; min-width: 0; justify-content: center; text-align: center; }
+    .actions-rail button[data-action] { min-height: 31px; padding-left: 7px; padding-right: 7px; }
+    .actions-rail .item-detail-link,
+    .inline-tools .item-detail-link { min-height: 30px; padding: 0 12px; font-size: 12px; border-color: #d7deeb; background: #ffffff; color: #42516b; }
+    #ordersRoot .card button[data-action] { box-shadow: none !important; }
+    #ordersRoot .card button[data-action="making"]:not(.is-active):not(.is-muted) {
       background: #ffe7e1 !important;
       color: #a14a38 !important;
       border-color: #efb5a8 !important;
     }
-    #ordersRoot .card .actions button[data-action="making"].is-active {
+    #ordersRoot .card button[data-action="making"].is-active {
       background: #fff0bf !important;
       color: #9a6a00 !important;
       border-color: #ebd27b !important;
     }
-    #ordersRoot .card .actions button[data-action="making"].is-muted {
+    #ordersRoot .card button[data-action="making"].is-muted {
       background: #f4f6fa !important;
       color: #6a7789 !important;
       border-color: #dbe2ec !important;
     }
-    #ordersRoot .card .actions button[data-action="ready"].is-active { appearance: none !important; -webkit-appearance: none !important; background-image: none !important; background-color: #5b8f79 !important; color: #ffffff !important; border-color: #497664 !important; }
-    #ordersRoot .card .actions button[data-action="closed"].is-active { background: #eceff4 !important; color: #536172 !important; border-color: #cfd7e1 !important; }
+    #ordersRoot .card button[data-action="ready"].is-active { appearance: none !important; -webkit-appearance: none !important; background-image: none !important; background-color: #5b8f79 !important; color: #ffffff !important; border-color: #497664 !important; }
+    #ordersRoot .card button[data-action="closed"].is-active { background: #eceff4 !important; color: #536172 !important; border-color: #cfd7e1 !important; }
     .empty { color: #667389; }
+    .order-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px; }
+    .item-line { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 18px; background: var(--soft); border: 1px solid #e1e8f2; }
+    .item-thumb { width: 56px; height: 56px; border-radius: 14px; overflow: hidden; border: 1px solid #d7dfec; background: #ffffff; display: flex; align-items: center; justify-content: center; }
+    .item-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .item-thumb-placeholder { color: #8a95a8; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+    .item-copy { min-width: 0; display: grid; gap: 2px; align-content: start; }
+    .item-name { font-size: 16px; font-weight: 800; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-notes { color: var(--muted); font-size: 13px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-qty { min-width: 48px; text-align: center; padding: 8px 10px; border-radius: 999px; background: #ffffff; border: 1px solid #d5deea; font-size: 16px; font-weight: 900; color: #314056; align-self: center; }
     .recipe-panel-backdrop { position: fixed; inset: 0; background: rgba(17, 25, 40, .38); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
     .recipe-panel-backdrop.is-open { display: flex; }
     .recipe-panel { width: min(760px, 100%); max-height: min(80vh, 760px); overflow: hidden; background: #ffffff; border: 1px solid #d8dfef; border-radius: 18px; box-shadow: 0 18px 40px rgba(31,42,70,.14); display: flex; flex-direction: column; }
@@ -105,23 +134,47 @@ function tt_menu_orders_display_name(array $order): string {
     .detail-panel-value { color: #18212f; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
     .detail-panel-meta { display: grid; gap: 4px; color: #667389; font-size: 13px; line-height: 1.45; }
     @media (max-width: 720px) {
+      .orders-grid { grid-template-columns: 1fr; }
+      .order-head { grid-template-columns: 1fr; }
+      .order-title { gap: 8px; }
+      .order-body { grid-template-columns: 1fr; }
+      .actions-rail { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .order-items { grid-template-columns: 1fr; }
+      .item-line { grid-template-columns: 56px minmax(0, 1fr) auto; }
+      .item-qty { justify-self: start; }
+      .item-thumb { width: 56px; height: 56px; border-radius: 14px; }
+      .inline-tools { justify-content: flex-start; }
       .detail-panel { grid-template-columns: 1fr; }
       .detail-panel-media { max-width: 240px; }
     }
   </style>
 <?php
-function tt_menu_orders_action_buttons(array $order): string {
+function tt_menu_orders_state_buttons(array $order): string {
     $status = (string) ($order['status'] ?? '');
     $isMaking = in_array($status, ['making', 'in_process'], true);
     $isReady = $status === 'ready';
     $isClosed = $status === 'closed';
     $isFinished = $isReady || $isClosed;
     $startLabel = $isMaking ? 'Making' : 'Start';
-    $readyLabel = $isReady ? 'Ready' : 'Mark ready';
+    $readyLabel = 'Ready';
     $closeLabel = $isClosed ? 'Closed' : 'Close';
     $startClass = $isMaking ? 'making-btn is-active' : ($isFinished ? 'making-btn is-muted' : 'making-btn');
     $readyClass = $isReady ? 'ready-btn is-active' : 'ready-btn';
     $closeClass = $isClosed ? 'close-btn is-active' : 'close-btn';
+    $items = is_array($order['items'] ?? null) ? $order['items'] : [];
+    $firstItem = $items[0] ?? null;
+    return sprintf(
+        '<div class="actions-rail"><button class="%s" type="button" data-action="making">%s</button><button class="%s" type="button" data-action="ready">%s</button><button class="%s" type="button" data-action="closed">%s</button></div>',
+        htmlspecialchars($startClass, ENT_QUOTES),
+        htmlspecialchars($startLabel, ENT_QUOTES),
+        htmlspecialchars($readyClass, ENT_QUOTES),
+        htmlspecialchars($readyLabel, ENT_QUOTES),
+        htmlspecialchars($closeClass, ENT_QUOTES),
+        htmlspecialchars($closeLabel, ENT_QUOTES)
+    );
+}
+
+function tt_menu_orders_inline_tools(array $order): string {
     $items = is_array($order['items'] ?? null) ? $order['items'] : [];
     $firstItem = $items[0] ?? null;
     $itemSurrogate = (int) (($firstItem['surrogate'] ?? 0));
@@ -132,13 +185,7 @@ function tt_menu_orders_action_buttons(array $order): string {
     $shortDescription = trim((string) ($firstItem['short_description'] ?? ''));
     $imageUrl = trim((string) ($firstItem['image_url'] ?? ''));
     return sprintf(
-        '<div class="actions-main"><button class="%s" type="button" data-action="making">%s</button><button class="%s" type="button" data-action="ready">%s</button><button class="%s" type="button" data-action="closed">%s</button></div><div class="actions-side"><button class="item-detail-link" type="button" data-panel-kind="details" data-detail-surrogate="%d" data-detail-item-id="%s" data-detail-title="%s" data-detail-short="%s" data-detail-body="%s" data-detail-image="%s">Details</button><button class="item-detail-link" type="button" data-panel-kind="recipe" data-detail-surrogate="%d" data-detail-item-id="%s" data-detail-title="%s" data-detail-short="%s" data-detail-body="%s" data-detail-image="%s">Recipe</button></div>',
-        htmlspecialchars($startClass, ENT_QUOTES),
-        htmlspecialchars($startLabel, ENT_QUOTES),
-        htmlspecialchars($readyClass, ENT_QUOTES),
-        htmlspecialchars($readyLabel, ENT_QUOTES),
-        htmlspecialchars($closeClass, ENT_QUOTES),
-        htmlspecialchars($closeLabel, ENT_QUOTES),
+        '<div class="inline-tools"><button class="item-detail-link" type="button" data-panel-kind="details" data-detail-surrogate="%d" data-detail-item-id="%s" data-detail-title="%s" data-detail-short="%s" data-detail-body="%s" data-detail-image="%s">Details</button><button class="item-detail-link" type="button" data-panel-kind="recipe" data-detail-surrogate="%d" data-detail-item-id="%s" data-detail-title="%s" data-detail-short="%s" data-detail-body="%s" data-detail-image="%s">Recipe</button></div>',
         $itemSurrogate,
         htmlspecialchars($itemId, ENT_QUOTES),
         htmlspecialchars($detailTitle, ENT_QUOTES),
@@ -153,6 +200,35 @@ function tt_menu_orders_action_buttons(array $order): string {
         htmlspecialchars($imageUrl, ENT_QUOTES)
     );
 }
+
+function tt_menu_orders_item_rows(array $order): string {
+    $items = is_array($order['items'] ?? null) ? $order['items'] : [];
+    if (!$items) {
+        return '<div class="item-line"><div class="item-copy"><div class="item-name">No items</div></div></div>';
+    }
+
+    $rows = [];
+    foreach ($items as $item) {
+        $title = trim((string) ($item['title'] ?? 'Item')) ?: 'Item';
+        $qty = max(0, (int) ($item['quantity'] ?? 0));
+        $imageUrl = trim((string) ($item['image_url'] ?? ''));
+        $short = trim((string) ($item['short_description'] ?? ''));
+        $details = trim((string) ($item['detailed_description'] ?? ''));
+        $notes = $short !== '' ? $short : $details;
+        $thumb = $imageUrl !== ''
+            ? '<img src="' . htmlspecialchars($imageUrl, ENT_QUOTES) . '" alt="' . htmlspecialchars($title, ENT_QUOTES) . '">'
+            : '<div class="item-thumb-placeholder">No image</div>';
+        $rows[] = sprintf(
+            '<div class="item-line"><div class="item-thumb">%s</div><div class="item-copy"><div class="item-name">%s</div>%s</div><div class="item-qty">× %d</div></div>',
+            $thumb,
+            htmlspecialchars($title, ENT_QUOTES),
+            $notes !== '' ? '<div class="item-notes">' . htmlspecialchars($notes, ENT_QUOTES) . '</div>' : '',
+            $qty
+        );
+    }
+
+    return implode('', $rows);
+}
 ?>
 </head>
 <body>
@@ -162,31 +238,39 @@ function tt_menu_orders_action_buttons(array $order): string {
         <div class="brand">TapTray Kitchen</div>
         <h1>Menu Orders</h1>
       </div>
-      <a href="/index.php">Back to menu</a>
+      <div class="top-actions">
+        <button type="button" id="togglePastOrders">Show past orders</button>
+      </div>
     </div>
-    <div id="ordersRoot" data-initial-orders='<?= htmlspecialchars(json_encode($orders, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>'>
+    <div id="ordersRoot" class="orders-grid" data-initial-orders='<?= htmlspecialchars(json_encode($orders, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>'>
       <?php if (!$orders): ?>
         <div class="card empty" id="ordersEmptyState">No active TapTray orders.</div>
       <?php endif; ?>
       <?php foreach ($orders as $order): ?>
         <article class="card" data-order-reference="<?= htmlspecialchars((string) $order['order_reference']) ?>">
-          <div class="order-head">
-            <div>
-              <strong><?= htmlspecialchars(tt_menu_orders_short_number($order) . ' · ' . tt_menu_orders_display_name($order)) ?></strong>
-            </div>
-            <?php $statusClass = tt_menu_orders_status_label((string) ($order['status'] ?? '')); ?>
-            <div class="pill <?= htmlspecialchars(strtolower(str_replace(' ', '-', $statusClass))) ?>"><?= htmlspecialchars($statusClass) ?></div>
-          </div>
-          <div class="items">
-            <?php foreach (($order['items'] ?? []) as $item): ?>
-              <div class="item">
-                <div class="item-label"><?= htmlspecialchars((string) ($item['title'] ?? 'Item')) ?> × <?= (int) ($item['quantity'] ?? 0) ?></div>
+          <div class="order-body">
+            <?= tt_menu_orders_state_buttons($order) ?>
+            <div class="item-area">
+              <div class="order-head">
+                <div class="order-title">
+                  <span class="order-number"><?= htmlspecialchars(tt_menu_orders_short_number($order)) ?></span>
+                  <strong><?= htmlspecialchars(tt_menu_orders_display_name($order)) ?></strong>
+                </div>
+                <?= tt_menu_orders_inline_tools($order) ?>
               </div>
-            <?php endforeach; ?>
+              <div class="order-items">
+                <?= tt_menu_orders_item_rows($order) ?>
+              </div>
+            </div>
           </div>
-          <div class="actions"><?= tt_menu_orders_action_buttons($order) ?></div>
         </article>
       <?php endforeach; ?>
+    </div>
+    <div id="pastOrdersSection" hidden>
+      <div class="section-heading">
+        <span>Past orders</span>
+      </div>
+      <div id="pastOrdersRoot"></div>
     </div>
   </div>
   <div class="recipe-panel-backdrop" id="recipePanelBackdrop" aria-hidden="true">
@@ -224,6 +308,9 @@ function tt_menu_orders_action_buttons(array $order): string {
   <script src="/assets/lucide.min.js"></script>
   <script>
     const ordersRoot = document.getElementById("ordersRoot");
+    const pastOrdersSection = document.getElementById("pastOrdersSection");
+    const pastOrdersRoot = document.getElementById("pastOrdersRoot");
+    const togglePastOrdersButton = document.getElementById("togglePastOrders");
     const recipePanelBackdrop = document.getElementById("recipePanelBackdrop");
     const recipePanelClose = document.getElementById("recipePanelClose");
     const recipePanelTitle = document.getElementById("recipePanelTitle");
@@ -235,6 +322,7 @@ function tt_menu_orders_action_buttons(array $order): string {
     const detailPanelShort = document.getElementById("detailPanelShort");
     const detailPanelBodyLabel = document.getElementById("detailPanelBodyLabel");
     const detailPanelBody = document.getElementById("detailPanelBody");
+    let showPastOrders = false;
 
     function getOrderShortNumber(order) {
       return `#${Number(order?.id || 0)}`;
@@ -273,12 +361,22 @@ function tt_menu_orders_action_buttons(array $order): string {
       return String(parentWin?.currentOwner?.display_name || "").trim();
     }
 
-    function renderActions(status, items = []) {
+    function renderStateButtons(status) {
       const value = String(status || "").trim();
       const isMaking = value === "making" || value === "in_process";
       const isReady = value === "ready";
       const isClosed = value === "closed";
       const isFinished = isReady || isClosed;
+      return `
+        <div class="actions-rail">
+          <button class="${isMaking ? "making-btn is-active" : (isFinished ? "making-btn is-muted" : "making-btn")}" type="button" data-action="making">${isMaking ? "Making" : "Start"}</button>
+          <button class="${isReady ? "ready-btn is-active" : "ready-btn"}" type="button" data-action="ready">Ready</button>
+          <button class="${isClosed ? "close-btn is-active" : "close-btn"}" type="button" data-action="closed">${isClosed ? "Closed" : "Close"}</button>
+        </div>
+      `;
+    }
+
+    function renderInlineTools(items = []) {
       const detailItem = Array.isArray(items) && items.length ? items[0] : null;
       const detailSurrogate = Number(detailItem?.surrogate || 0);
       const detailId = String(detailItem?.id || "");
@@ -288,12 +386,7 @@ function tt_menu_orders_action_buttons(array $order): string {
       const shortDescription = String(detailItem?.short_description || "").trim();
       const imageUrl = String(detailItem?.image_url || "").trim();
       return `
-        <div class="actions-main">
-          <button class="${isMaking ? "making-btn is-active" : (isFinished ? "making-btn is-muted" : "making-btn")}" type="button" data-action="making">${isMaking ? "Making" : "Start"}</button>
-          <button class="${isReady ? "ready-btn is-active" : "ready-btn"}" type="button" data-action="ready">${isReady ? "Ready" : "Mark ready"}</button>
-          <button class="${isClosed ? "close-btn is-active" : "close-btn"}" type="button" data-action="closed">${isClosed ? "Closed" : "Close"}</button>
-        </div>
-        <div class="actions-side">
+        <div class="inline-tools">
           <button class="item-detail-link" type="button" data-panel-kind="details" data-detail-surrogate="${detailSurrogate}" data-detail-item-id="${escapeHtml(detailId)}" data-detail-title="${escapeHtml(detailTitle)}" data-detail-short="${escapeHtml(shortDescription)}" data-detail-body="${escapeHtml(detailsBody)}" data-detail-image="${escapeHtml(imageUrl)}">Details</button>
           <button class="item-detail-link" type="button" data-panel-kind="recipe" data-detail-surrogate="${detailSurrogate}" data-detail-item-id="${escapeHtml(detailId)}" data-detail-title="${escapeHtml(detailTitle)}" data-detail-short="${escapeHtml(shortDescription)}" data-detail-body="${escapeHtml(recipeBody)}" data-detail-image="${escapeHtml(imageUrl)}">Recipe</button>
         </div>
@@ -302,24 +395,123 @@ function tt_menu_orders_action_buttons(array $order): string {
 
     function renderOrderCard(order) {
       const items = Array.isArray(order?.items) ? order.items : [];
-      const statusLabel = getStatusLabel(order?.status || "");
-      const statusClass = statusLabel.toLowerCase().replace(/\s+/g, "-");
+      const orderReference = String(order?.order_reference || "");
+      const orderSignature = createOrderSignature(order);
       return `
-        <article class="card" data-order-reference="${String(order?.order_reference || "")}">
-          <div class="order-head">
-            <div>
-              <strong>${getOrderShortNumber(order)} · ${getOrderDisplayName(order)}</strong>
+        <article class="card" data-order-reference="${escapeHtml(orderReference)}" data-order-signature="${escapeHtml(orderSignature)}">
+          <div class="order-body">
+            ${renderStateButtons(order?.status || "")}
+            <div class="item-area">
+              <div class="order-head">
+                <div class="order-title">
+                  <span class="order-number">${escapeHtml(getOrderShortNumber(order))}</span>
+                  <strong>${escapeHtml(getOrderDisplayName(order))}</strong>
+                </div>
+                ${renderInlineTools(items)}
+              </div>
+              <div class="order-items">
+            ${items.length ? items.map((item) => {
+              const title = String(item?.title || "Item");
+              const quantity = Number(item?.quantity || 0);
+              const imageUrl = String(item?.image_url || "").trim();
+              const shortText = String(item?.short_description || "").trim();
+              const detailText = String(item?.detailed_description || "").trim();
+              const notes = shortText || detailText;
+              return `
+                <div class="item-line">
+                  <div class="item-thumb">
+                    ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}">` : `<div class="item-thumb-placeholder">No image</div>`}
+                  </div>
+                  <div class="item-copy">
+                    <div class="item-name">${escapeHtml(title)}</div>
+                    ${notes ? `<div class="item-notes">${escapeHtml(notes)}</div>` : ""}
+                  </div>
+                  <div class="item-qty">× ${quantity}</div>
+                </div>
+              `;
+            }).join("") : `<div class="item-line"><div class="item-copy"><div class="item-name">No items</div></div></div>`}
+              </div>
             </div>
-            <div class="pill ${statusClass}">${statusLabel}</div>
           </div>
-          <div class="items">
-            ${items.map((item) => {
-              return `<div class="item"><div class="item-label">${String(item?.title || "Item")} × ${Number(item?.quantity || 0)}</div></div>`;
-            }).join("")}
-          </div>
-          <div class="actions">${renderActions(order?.status || "", items)}</div>
         </article>
       `;
+    }
+
+    function createOrderSignature(order) {
+      const items = Array.isArray(order?.items) ? order.items.map((item) => ({
+        title: String(item?.title || ""),
+        quantity: Number(item?.quantity || 0),
+        image_url: String(item?.image_url || ""),
+        short_description: String(item?.short_description || ""),
+        detailed_description: String(item?.detailed_description || "")
+      })) : [];
+      return JSON.stringify({
+        order_reference: String(order?.order_reference || ""),
+        order_name: String(order?.order_name || ""),
+        customer_username: String(order?.customer_username || ""),
+        total_quantity: Number(order?.total_quantity || 0),
+        status: String(order?.status || ""),
+        items
+      });
+    }
+
+    function updateOrdersRoot(root, orders, emptyMessage) {
+      const nextOrders = Array.isArray(orders) ? orders : [];
+      if (!nextOrders.length) {
+        root.innerHTML = `<div class="card empty">${emptyMessage}</div>`;
+        return;
+      }
+
+      const emptyCards = Array.from(root.querySelectorAll(".card.empty"));
+      emptyCards.forEach((card) => card.remove());
+
+      const existingCards = new Map(
+        Array.from(root.querySelectorAll("[data-order-reference]")).map((card) => [card.dataset.orderReference || "", card])
+      );
+      const nextRefs = new Set();
+
+      nextOrders.forEach((order, index) => {
+        const orderReference = String(order?.order_reference || "");
+        if (!orderReference) {
+          return;
+        }
+        nextRefs.add(orderReference);
+        const nextSignature = createOrderSignature(order);
+        const existingCard = existingCards.get(orderReference) || null;
+
+        if (!existingCard) {
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = renderOrderCard(order).trim();
+          const nextCard = wrapper.firstElementChild;
+          const currentChild = root.children[index] || null;
+          root.insertBefore(nextCard, currentChild);
+          return;
+        }
+
+        if (existingCard.dataset.orderSignature !== nextSignature) {
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = renderOrderCard(order).trim();
+          const nextCard = wrapper.firstElementChild;
+          existingCard.replaceWith(nextCard);
+          return;
+        }
+
+        const currentChild = root.children[index] || null;
+        if (currentChild !== existingCard) {
+          root.insertBefore(existingCard, currentChild);
+        }
+      });
+
+      Array.from(root.querySelectorAll("[data-order-reference]")).forEach((card) => {
+        const orderReference = card.dataset.orderReference || "";
+        if (!nextRefs.has(orderReference)) {
+          card.remove();
+        }
+      });
+
+      if (!root.querySelector("[data-order-reference]")) {
+        root.innerHTML = `<div class="card empty">${emptyMessage}</div>`;
+      }
     }
 
     function bindOrderActions(scope = document) {
@@ -422,7 +614,8 @@ function tt_menu_orders_action_buttons(array $order): string {
     }
 
     async function refreshOrders() {
-      const response = await fetch("/menu_orders_data.php", {
+      const query = showPastOrders ? "?include_past=1&past_limit=8" : "";
+      const response = await fetch(`/menu_orders_data.php${query}`, {
         credentials: "same-origin",
         headers: { "Accept": "application/json" }
       });
@@ -431,15 +624,25 @@ function tt_menu_orders_action_buttons(array $order): string {
         return;
       }
       const orders = Array.isArray(data.orders) ? data.orders : [];
-      if (!orders.length) {
-        ordersRoot.innerHTML = `<div class="card empty" id="ordersEmptyState">No active TapTray orders.</div>`;
-        return;
-      }
-      ordersRoot.innerHTML = orders.map(renderOrderCard).join("");
+      const pastOrders = Array.isArray(data.past_orders) ? data.past_orders : [];
+      updateOrdersRoot(ordersRoot, orders, "No active TapTray orders.");
       bindOrderActions(ordersRoot);
+      if (showPastOrders) {
+        pastOrdersSection.hidden = false;
+        updateOrdersRoot(pastOrdersRoot, pastOrders, "No past TapTray orders.");
+        bindOrderActions(pastOrdersRoot);
+      } else {
+        pastOrdersSection.hidden = true;
+        pastOrdersRoot.innerHTML = "";
+      }
     }
 
     bindOrderActions(ordersRoot);
+    togglePastOrdersButton.addEventListener("click", async () => {
+      showPastOrders = !showPastOrders;
+      togglePastOrdersButton.textContent = showPastOrders ? "Hide past orders" : "Show past orders";
+      await refreshOrders();
+    });
     window.lucide?.createIcons?.();
     recipePanelClose.addEventListener("click", closeRecipePanel);
     recipePanelBackdrop.addEventListener("click", (event) => {

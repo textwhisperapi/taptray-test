@@ -2,9 +2,17 @@
 require_once __DIR__ . '/includes/db_connect.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/sub_worldline_config.php';
+require_once __DIR__ . '/includes/sub_rapyd_config.php';
 sec_session_start();
 
+$requestedProvider = strtolower(trim((string) ($_GET['provider'] ?? '')));
+$configuredProvider = strtolower(trim((string) (function_exists('tt_env_value') ? tt_env_value('TT_PAYMENT_PROVIDER', 'worldline') : 'worldline')));
+$paymentProvider = in_array($requestedProvider, ['worldline', 'rapyd'], true)
+  ? $requestedProvider
+  : (in_array($configuredProvider, ['worldline', 'rapyd'], true) ? $configuredProvider : 'worldline');
+
 $ttMerchantConfig = [
+  'paymentProvider' => $paymentProvider,
   'paymentModel' => defined('TT_PAYMENT_MODEL') ? TT_PAYMENT_MODEL : 'merchant_of_record',
   'merchantName' => defined('TT_MERCHANT_NAME') ? TT_MERCHANT_NAME : 'TapTray',
   'merchantCountry' => defined('TT_MERCHANT_COUNTRY') ? TT_MERCHANT_COUNTRY : 'NL',
@@ -15,6 +23,8 @@ $ttMerchantConfig = [
   'walletEnabled' => defined('TT_WALLET_ENABLED') ? TT_WALLET_ENABLED : true,
   'googlePayEnvironment' => defined('TT_GOOGLE_PAY_ENVIRONMENT') ? TT_GOOGLE_PAY_ENVIRONMENT : 'TEST',
   'googlePayMerchantId' => defined('TT_GOOGLE_PAY_MERCHANT_ID') ? TT_GOOGLE_PAY_MERCHANT_ID : '',
+  'rapydEnvironment' => defined('RAPYD_ENV') ? RAPYD_ENV : 'sandbox',
+  'rapydEndpoint' => defined('RAPYD_ENDPOINT') ? RAPYD_ENDPOINT : 'https://sandboxapi.rapyd.net',
   'worldlineGatewayMerchantId' => defined('WL_MERCHANT_ID') ? WL_MERCHANT_ID : (defined('TT_WORLDLINE_GOOGLEPAY_GATEWAY_MERCHANT_ID') ? TT_WORLDLINE_GOOGLEPAY_GATEWAY_MERCHANT_ID : ''),
 ];
 ?>
@@ -298,6 +308,21 @@ $ttMerchantConfig = [
       font-size: 13px;
       line-height: 1.45;
     }
+    .checkout-provider-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, #ffffff, #f7faff);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
     .checkout-test-link {
       display: inline-flex;
       align-items: center;
@@ -373,8 +398,11 @@ $ttMerchantConfig = [
         </div>
         <div class="checkout-card-head">
           <div class="checkout-kicker">Your order</div>
+          <div class="checkout-provider-badge">Provider: <?= htmlspecialchars(strtoupper($paymentProvider), ENT_QUOTES, 'UTF-8') ?></div>
           <h1>Review before payment</h1>
-          <p class="checkout-sub">Phone wallet comes first. If the device has no default wallet path, TapTray will fall back to other payment options.</p>
+          <p class="checkout-sub"><?= htmlspecialchars($paymentProvider === 'rapyd'
+            ? 'Google Pay runs directly when available. Apple Pay still opens the Rapyd hosted checkout.'
+            : 'Phone wallet comes first. If the device has no default wallet path, TapTray will fall back to other payment options.', ENT_QUOTES, 'UTF-8') ?></p>
         </div>
         <div class="checkout-order-name">
           <label for="checkoutOrderName">Order name</label>
@@ -393,15 +421,15 @@ $ttMerchantConfig = [
             <button class="wallet-btn primary" type="button" id="checkoutPayNowBtn">
               <span id="checkoutPrimaryLabel" class="checkout-primary-label">Confirm and pay</span>
             </button>
-            <button class="wallet-btn apple" type="button" id="checkoutTestApplePayBtn">Test Apple Pay Route</button>
+            <button class="wallet-btn apple" type="button" id="checkoutTestApplePayBtn"><?= htmlspecialchars($paymentProvider === 'rapyd' ? 'Open Hosted Wallet Test' : 'Test Apple Pay Route', ENT_QUOTES, 'UTF-8') ?></button>
             <div id="checkoutPrimaryNote" class="checkout-primary-note">Checking for your phone wallet…</div>
           </div>
           <div class="checkout-links">
             <a href="/taptray_success_worldline.php?test=1" id="checkoutViewSuccessBtn" class="checkout-test-link">View post-purchase screen</a>
-            <a href="/taptray_payment_diagnostics.php" class="checkout-test-link">Open payment diagnostics</a>
+            <a href="<?= htmlspecialchars($paymentProvider === 'rapyd' ? '/test_rapyd_api.php' : '/taptray_payment_diagnostics.php', ENT_QUOTES, 'UTF-8') ?>" class="checkout-test-link"><?= htmlspecialchars($paymentProvider === 'rapyd' ? 'Open Rapyd sandbox test' : 'Open payment diagnostics', ENT_QUOTES, 'UTF-8') ?></a>
           </div>
           <div id="checkoutDebug" class="checkout-debug">Wallet detection info will appear here when you press pay.</div>
-          <p class="checkout-note">TapTray keeps one clear pay step. The phone wallet authorizes, and Worldline handles processing in the background. Right now the remaining blocker is Worldline merchant access for the preprod Direct API.</p>
+          <p class="checkout-note">TapTray keeps one clear pay step. Current provider: <strong><?= htmlspecialchars(strtoupper($paymentProvider), ENT_QUOTES, 'UTF-8') ?></strong>.</p>
         </div>
       </aside>
     </div>
@@ -409,13 +437,34 @@ $ttMerchantConfig = [
 
   <script async src="https://pay.google.com/gp/p/js/pay.js"></script>
   <script>
+    window.tapTrayCheckoutDraftOrder = null;
+
     function getTapTrayCheckoutCart() {
-      try {
-        const parsed = JSON.parse(localStorage.getItem("taptray:cart") || "{}");
-        return parsed && typeof parsed === "object" ? parsed : {};
-      } catch {
-        return {};
+      const items = Array.isArray(window.tapTrayCheckoutDraftOrder?.items) ? window.tapTrayCheckoutDraftOrder.items : [];
+      const cart = {};
+      items.forEach((item) => {
+        const key = String(item?.surrogate || "").trim();
+        if (!key) return;
+        cart[key] = item;
+      });
+      return cart;
+    }
+
+    function getTapTrayCheckoutOrderReference() {
+      return String(window.tapTrayCheckoutDraftOrder?.order_reference || "").trim();
+    }
+
+    async function loadTapTrayCheckoutDraftOrder() {
+      const response = await fetch("/taptray_order_status.php", {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" }
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data || !data.ok) {
+        throw new Error(data && data.error ? data.error : "Could not load the TapTray order.");
       }
+      window.tapTrayCheckoutDraftOrder = data.draft_order && typeof data.draft_order === "object" ? data.draft_order : null;
+      return window.tapTrayCheckoutDraftOrder;
     }
 
     function loadCheckoutOrderName() {
@@ -460,6 +509,7 @@ $ttMerchantConfig = [
 
     const ZERO_DECIMAL_CURRENCIES = new Set(["BIF", "CLP", "DJF", "GNF", "ISK", "JPY", "KMF", "KRW", "MGA", "PYG", "RWF", "UGX", "VND", "VUV", "XAF", "XOF", "XPF"]);
     const TAPTRAY_PAYMENT_CONTEXT = <?= json_encode($ttMerchantConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const TAPTRAY_PROVIDER = String(TAPTRAY_PAYMENT_CONTEXT.paymentProvider || "worldline").toLowerCase();
     const TAPTRAY_GOOGLE_PAY = {
       enabled: !!TAPTRAY_PAYMENT_CONTEXT.walletEnabled,
       environment: String(TAPTRAY_PAYMENT_CONTEXT.googlePayEnvironment || "TEST").toUpperCase(),
@@ -468,6 +518,11 @@ $ttMerchantConfig = [
       product320Endpoint: "/taptray_get_worldline_product_320.php",
       createPaymentEndpoint: "/taptray_create_worldline_googlepay_payment.php",
       createCheckoutEndpoint: "/taptray_create_worldline_checkout.php"
+    };
+    const TAPTRAY_RAPYD = {
+      configEndpoint: "/taptray_get_rapyd_googlepay_config.php",
+      createCheckoutEndpoint: "/taptray_create_rapyd_checkout.php",
+      createPaymentEndpoint: "/taptray_create_rapyd_googlepay_payment.php"
     };
     const tapTrayGooglePayState = {
       paymentsClient: null,
@@ -669,6 +724,67 @@ $ttMerchantConfig = [
       if (!TAPTRAY_GOOGLE_PAY.enabled) {
         return { ready: false, walletInfo, reason: "Wallet-first payment is disabled in TapTray settings." };
       }
+      if (TAPTRAY_PROVIDER === "rapyd") {
+        if (walletInfo.hasApplePay) {
+          tapTrayGooglePayState.ready = true;
+          tapTrayGooglePayState.mode = "apple_pay_hosted_checkout";
+          return { ready: true, walletInfo, walletLabel: "Apple Pay" };
+        }
+        if (!walletInfo.hasGooglePaySdk) {
+          return { ready: false, walletInfo, reason: "Google Pay is not available in this browser yet." };
+        }
+        if (!String(TAPTRAY_PAYMENT_CONTEXT.googlePayMerchantId || "").trim()) {
+          return { ready: false, walletInfo, reason: "TapTray is missing the Google Pay merchant ID." };
+        }
+
+        const totals = getCheckoutTotals(getCheckoutEntries());
+        const url = `${TAPTRAY_RAPYD.configEndpoint}?country=${encodeURIComponent(TAPTRAY_PAYMENT_CONTEXT.merchantCountry)}&currency=${encodeURIComponent(TAPTRAY_PAYMENT_CONTEXT.merchantCurrency)}&amount_minor=${encodeURIComponent(String(Math.max(1, toMinorAmount(totals.totalPrice) || 1)))}`;
+        const response = await fetch(url, {
+          credentials: "same-origin",
+          headers: { Accept: "application/json" }
+        });
+        const config = await response.json().catch(() => null);
+        if (!response.ok || !config || !config.ok) {
+          throw new Error(config && config.error ? config.error : "Could not load the Rapyd Google Pay configuration.");
+        }
+
+        const client = createGooglePaymentsClient();
+        const paymentMethod = {
+          type: "CARD",
+          parameters: {
+            allowedAuthMethods: ["PAN_ONLY", "CRYPTOGRAM_3DS"],
+            allowedCardNetworks: Array.isArray(config.allowedCardNetworks) && config.allowedCardNetworks.length
+              ? config.allowedCardNetworks
+              : ["MASTERCARD", "VISA"]
+          },
+          tokenizationSpecification: {
+            type: "PAYMENT_GATEWAY",
+            parameters: {
+              gateway: "rapyd",
+              gatewayMerchantId: String(config.gatewayMerchantId || "").trim()
+            }
+          }
+        };
+
+        const readyResponse = await client.isReadyToPay({
+          apiVersion: 2,
+          apiVersionMinor: 0,
+          allowedPaymentMethods: [paymentMethod]
+        });
+
+        tapTrayGooglePayState.paymentsClient = client;
+        tapTrayGooglePayState.paymentMethod = paymentMethod;
+        tapTrayGooglePayState.product320 = config;
+        tapTrayGooglePayState.ready = !!(readyResponse && readyResponse.result);
+        tapTrayGooglePayState.mode = tapTrayGooglePayState.ready ? "rapyd_google_pay_direct" : "fallback";
+
+        return {
+          ready: tapTrayGooglePayState.ready,
+          walletInfo,
+          product320: config,
+          walletLabel: "Google Pay"
+        };
+      }
       if (walletInfo.hasApplePay) {
         tapTrayGooglePayState.ready = true;
         tapTrayGooglePayState.mode = "apple_pay_hosted_checkout";
@@ -706,7 +822,10 @@ $ttMerchantConfig = [
     }
 
     async function createHostedWalletCheckout(walletInfo, walletLabel) {
-      const response = await fetch(TAPTRAY_GOOGLE_PAY.createCheckoutEndpoint, {
+      const checkoutEndpoint = TAPTRAY_PROVIDER === "rapyd"
+        ? TAPTRAY_RAPYD.createCheckoutEndpoint
+        : TAPTRAY_GOOGLE_PAY.createCheckoutEndpoint;
+      const response = await fetch(checkoutEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -748,6 +867,7 @@ $ttMerchantConfig = [
       debugEl.classList.remove("is-error");
       const summary = [
         `Primary path: ${label}`,
+        `Provider: ${TAPTRAY_PROVIDER}`,
         `Merchant: ${TAPTRAY_PAYMENT_CONTEXT.merchantName}`,
         `Payment model: ${TAPTRAY_PAYMENT_CONTEXT.paymentModel}`,
         `Country / currency: ${TAPTRAY_PAYMENT_CONTEXT.merchantCountry} / ${TAPTRAY_PAYMENT_CONTEXT.merchantCurrency}`,
@@ -760,8 +880,11 @@ $ttMerchantConfig = [
         `Platform: ${walletInfo?.platform || "unknown"}`,
         `Language: ${walletInfo?.language || "unknown"}`
       ];
-      if (tapTrayGooglePayState.product320?.gateway) {
+      if (TAPTRAY_PROVIDER !== "rapyd" && tapTrayGooglePayState.product320?.gateway) {
         summary.push(`Worldline gateway: ${tapTrayGooglePayState.product320.gateway}`);
+      }
+      if (TAPTRAY_PROVIDER === "rapyd" && tapTrayGooglePayState.product320?.gateway) {
+        summary.push(`Rapyd gateway: ${tapTrayGooglePayState.product320.gateway}`);
       }
       debugEl.textContent = summary.join("\n");
     }
@@ -807,6 +930,7 @@ $ttMerchantConfig = [
       const entries = getCheckoutEntries();
       const totals = getCheckoutTotals(entries);
       return {
+        order_reference: getTapTrayCheckoutOrderReference(),
         cart: entries,
         order_name: getCheckoutOrderName(),
         wallet: {
@@ -848,67 +972,32 @@ $ttMerchantConfig = [
         showCheckoutError("No items selected yet.");
         return;
       }
-      if (!tapTrayGooglePayState.ready || !tapTrayGooglePayState.paymentsClient || !tapTrayGooglePayState.paymentMethod) {
+      const walletInfo = tapTrayGooglePayState.walletInfo || await detectPreferredWallet();
+      if (!tapTrayGooglePayState.ready && tapTrayGooglePayState.mode !== "fallback" && tapTrayGooglePayState.mode !== "apple_pay_hosted_checkout") {
         showCheckoutError("No supported default wallet is ready on this phone yet.");
         return;
       }
 
-      const walletInfo = tapTrayGooglePayState.walletInfo || await detectPreferredWallet();
       const walletLabel = tapTrayGooglePayState.mode === "apple_pay_hosted_checkout" ? "Apple Pay" : "Google Pay";
       showWalletDebug(walletInfo, walletLabel);
       setPrimaryButtonLoading(true);
 
       try {
+        if (TAPTRAY_PROVIDER === "rapyd") {
+          if (tapTrayGooglePayState.mode === "rapyd_google_pay_direct" && tapTrayGooglePayState.ready) {
+            await startRapydGooglePayment(walletInfo, entries);
+            return;
+          }
+          const data = await createHostedWalletCheckout(walletInfo, walletInfo.hasApplePay ? "Apple Pay" : "Phone wallet");
+          window.location.href = data.redirect_url;
+          return;
+        }
         if (tapTrayGooglePayState.mode === "apple_pay_hosted_checkout") {
           const data = await createHostedWalletCheckout(walletInfo, "Apple Pay");
           window.location.href = data.redirect_url;
           return;
         }
-
-        const totals = getCheckoutTotals(entries);
-        const paymentData = await tapTrayGooglePayState.paymentsClient.loadPaymentData(
-          buildGooglePayPaymentDataRequest(totals)
-        );
-
-        const response = await fetch(TAPTRAY_GOOGLE_PAY.createPaymentEndpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          credentials: "same-origin",
-          body: JSON.stringify({
-            ...buildCheckoutPayload(walletInfo, "Phone wallet"),
-            googlePayPaymentData: paymentData,
-            device: {
-              language: navigator.language || "",
-              userAgent: navigator.userAgent || "",
-              platform: navigator.platform || "",
-              acceptHeader: navigator.userAgent || "*/*"
-            }
-          })
-        });
-
-        const data = await response.json().catch(() => null);
-        if (!response.ok || !data || !data.ok) {
-          const message = data && data.error ? data.error : "TapTray could not complete wallet payment.";
-          throw new Error(message);
-        }
-
-        const debugEl = document.getElementById("checkoutDebug");
-        if (debugEl) {
-          debugEl.classList.remove("is-error");
-          debugEl.textContent = [
-            `Primary path: Phone wallet`,
-            `Merchant: ${TAPTRAY_PAYMENT_CONTEXT.merchantName}`,
-            `Order reference: ${data.order_reference || "pending"}`,
-            `Worldline payment: ${data.payment_id || "pending"}`,
-            `Status: ${data.status_category || data.status || "received"}`,
-            `Payment approved. Moving to confirmation…`
-          ].join("\n");
-        }
-
-        window.location.href = data.success_url || "/taptray_success_worldline.php";
+        await startWorldlineGooglePayment(walletInfo, entries);
       } catch (error) {
         const statusCode = error && typeof error.statusCode === "string" ? error.statusCode : "";
         if (statusCode === "CANCELED") {
@@ -920,12 +1009,132 @@ $ttMerchantConfig = [
       }
     }
 
+    async function startWorldlineGooglePayment(walletInfo, entries) {
+      const totals = getCheckoutTotals(entries);
+      const paymentData = await tapTrayGooglePayState.paymentsClient.loadPaymentData(
+        buildGooglePayPaymentDataRequest(totals)
+      );
+
+      const response = await fetch(TAPTRAY_GOOGLE_PAY.createPaymentEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          ...buildCheckoutPayload(walletInfo, "Phone wallet"),
+          googlePayPaymentData: paymentData,
+          device: {
+            language: navigator.language || "",
+            userAgent: navigator.userAgent || "",
+            platform: navigator.platform || "",
+            acceptHeader: navigator.userAgent || "*/*"
+          }
+        })
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data || !data.ok) {
+        const message = data && data.error ? data.error : "TapTray could not complete wallet payment.";
+        throw new Error(message);
+      }
+
+      const debugEl = document.getElementById("checkoutDebug");
+      if (debugEl) {
+        debugEl.classList.remove("is-error");
+        debugEl.textContent = [
+          `Primary path: Phone wallet`,
+          `Provider: WORLDLINE`,
+          `Merchant: ${TAPTRAY_PAYMENT_CONTEXT.merchantName}`,
+          `Order reference: ${data.order_reference || "pending"}`,
+          `Worldline payment: ${data.payment_id || "pending"}`,
+          `Status: ${data.status_category || data.status || "received"}`,
+          `Payment approved. Moving to confirmation…`
+        ].join("\n");
+      }
+
+      window.location.href = data.success_url || "/taptray_success_worldline.php";
+    }
+
+    async function startRapydGooglePayment(walletInfo, entries) {
+      const totals = getCheckoutTotals(entries);
+      const config = tapTrayGooglePayState.product320 || {};
+      const paymentData = await tapTrayGooglePayState.paymentsClient.loadPaymentData({
+        apiVersion: 2,
+        apiVersionMinor: 0,
+        allowedPaymentMethods: [tapTrayGooglePayState.paymentMethod],
+        merchantInfo: {
+          merchantId: String(TAPTRAY_PAYMENT_CONTEXT.googlePayMerchantId || "").trim(),
+          merchantName: TAPTRAY_PAYMENT_CONTEXT.merchantName
+        },
+        transactionInfo: {
+          totalPriceStatus: "FINAL",
+          totalPriceLabel: TAPTRAY_PAYMENT_CONTEXT.merchantDescriptor || TAPTRAY_PAYMENT_CONTEXT.merchantName,
+          totalPrice: formatDisplayAmount(totals.totalPrice),
+          currencyCode: TAPTRAY_PAYMENT_CONTEXT.merchantCurrency,
+          countryCode: TAPTRAY_PAYMENT_CONTEXT.merchantCountry,
+          checkoutOption: "COMPLETE_IMMEDIATE_PURCHASE"
+        }
+      });
+
+      const response = await fetch(TAPTRAY_RAPYD.createPaymentEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          ...buildCheckoutPayload(walletInfo, "Google Pay"),
+          googlePayPaymentData: paymentData,
+          rapydPaymentTypeMap: config.paymentTypeMap || {}
+        })
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data || !data.ok) {
+        const message = data && data.error ? data.error : "TapTray could not complete Rapyd Google Pay.";
+        throw new Error(message);
+      }
+
+      const debugEl = document.getElementById("checkoutDebug");
+      if (debugEl) {
+        debugEl.classList.remove("is-error");
+        debugEl.textContent = [
+          `Primary path: Google Pay`,
+          `Provider: RAPYD`,
+          `Merchant: ${TAPTRAY_PAYMENT_CONTEXT.merchantName}`,
+          `Order reference: ${data.order_reference || "pending"}`,
+          `Rapyd payment: ${data.payment_id || "pending"}`,
+          `Status: ${data.status || "received"}`,
+          `Payment approved. Moving to confirmation…`
+        ].join("\n");
+      }
+
+      window.location.href = data.redirect_url || data.success_url || "/taptray_success_worldline.php";
+    }
+
     async function startApplePayHostedCheckoutTest() {
       const button = document.getElementById("checkoutTestApplePayBtn");
       const entries = getCheckoutEntries();
       if (!entries.length) {
         showCheckoutError("No items selected yet.");
         return;
+      }
+      if (TAPTRAY_PROVIDER === "rapyd") {
+        const walletInfo = tapTrayGooglePayState.walletInfo || await detectPreferredWallet();
+        showWalletDebug({ ...walletInfo, type: "rapyd_hosted_checkout" }, "Rapyd hosted checkout");
+        setButtonLoading(button, true, "Opening Rapyd…");
+        try {
+          const data = await createHostedWalletCheckout(walletInfo, walletInfo.hasApplePay ? "Apple Pay" : "Hosted wallet");
+          window.location.href = data.redirect_url;
+          return;
+        } catch (error) {
+          showCheckoutError(error?.message || "TapTray could not start Rapyd checkout.");
+          setButtonLoading(button, false, "");
+          return;
+        }
       }
 
       const walletInfo = tapTrayGooglePayState.walletInfo || await detectPreferredWallet();
@@ -950,17 +1159,14 @@ $ttMerchantConfig = [
         orderNameInput.value = loadCheckoutOrderName();
         orderNameInput.addEventListener("input", () => persistCheckoutOrderName(orderNameInput.value));
       }
-      renderCheckout();
-      const note = document.getElementById("checkoutPrimaryNote");
-      const primaryBtn = document.getElementById("checkoutPayNowBtn");
-      const topPrimaryBtn = document.getElementById("checkoutTopPayBtn");
-      const previewBtn = document.getElementById("checkoutViewSuccessBtn");
-
-      if (previewBtn) {
-        previewBtn.href = buildSuccessPreviewUrl();
-      }
-
       try {
+        await loadTapTrayCheckoutDraftOrder();
+        renderCheckout();
+        const previewBtn = document.getElementById("checkoutViewSuccessBtn");
+        if (previewBtn) {
+          previewBtn.href = buildSuccessPreviewUrl();
+        }
+        const note = document.getElementById("checkoutPrimaryNote");
         const init = await initializeWalletPath();
         if (note) {
           note.textContent = init.ready
@@ -969,12 +1175,16 @@ $ttMerchantConfig = [
         }
         showWalletDebug(init.walletInfo, init.ready ? `${init.walletLabel || "Phone wallet"} ready` : "Wallet unavailable");
       } catch (error) {
+        renderCheckout();
+        const note = document.getElementById("checkoutPrimaryNote");
         if (note) {
           note.textContent = error?.message || "TapTray could not prepare wallet payment.";
         }
         showCheckoutError(error?.message || "TapTray could not prepare wallet payment.");
       }
 
+      const primaryBtn = document.getElementById("checkoutPayNowBtn");
+      const topPrimaryBtn = document.getElementById("checkoutTopPayBtn");
       primaryBtn?.addEventListener("click", startWalletPayment);
       topPrimaryBtn?.addEventListener("click", startWalletPayment);
       document.getElementById("checkoutTestApplePayBtn")?.addEventListener("click", startApplePayHostedCheckoutTest);

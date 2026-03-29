@@ -94,6 +94,125 @@ function tt_orders_normalize_order(array $order): array {
     ];
 }
 
+function tt_orders_generate_reference(string $prefix = 'ttord_'): string {
+    return $prefix . gmdate('Ymd_His') . '_' . bin2hex(random_bytes(4));
+}
+
+function tt_orders_calculate_totals(array $items): array {
+    $amountMinor = 0;
+    $quantity = 0;
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $itemQty = max(0, (int) ($item['quantity'] ?? 0));
+        $lineMinor = (int) ($item['line_minor'] ?? 0);
+        $unitMinor = (int) ($item['unit_minor'] ?? 0);
+        if ($itemQty < 1) {
+            continue;
+        }
+        if ($lineMinor < 1 && $unitMinor > 0) {
+            $lineMinor = $unitMinor * $itemQty;
+        }
+        $amountMinor += max(0, $lineMinor);
+        $quantity += $itemQty;
+    }
+    return [
+        'amount_minor' => $amountMinor,
+        'quantity' => $quantity,
+    ];
+}
+
+function tt_orders_get_draft_for_customer(mysqli $mysqli, string $customerToken): ?array {
+    tt_orders_ensure_schema($mysqli);
+    $stmt = $mysqli->prepare("
+        SELECT *
+        FROM taptray_orders
+        WHERE customer_token = ?
+          AND status = 'draft'
+        ORDER BY updated_at DESC, created_at DESC
+        LIMIT 1
+    ");
+    if (!$stmt) {
+        return null;
+    }
+    $stmt->bind_param('s', $customerToken);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc() ?: null;
+    $stmt->close();
+    if (!$row) {
+        return null;
+    }
+    $row['items'] = json_decode((string) ($row['items_json'] ?? '[]'), true) ?: [];
+    $row['items'] = tt_orders_attach_recipe_texts($mysqli, $row['items']);
+    return $row;
+}
+
+function tt_orders_get_customer_checkout_order(mysqli $mysqli, string $customerToken, string $orderReference = ''): ?array {
+    $orderReference = trim($orderReference);
+    if ($orderReference !== '') {
+        $row = tt_orders_get_by_reference($mysqli, $orderReference);
+        if ($row && trim((string) ($row['customer_token'] ?? '')) === $customerToken) {
+            return $row;
+        }
+    }
+    return tt_orders_get_draft_for_customer($mysqli, $customerToken);
+}
+
+function tt_orders_save_draft(mysqli $mysqli, string $customerToken, string $customerUsername, array $items, string $orderName = ''): ?array {
+    tt_orders_ensure_schema($mysqli);
+    $draft = tt_orders_get_draft_for_customer($mysqli, $customerToken);
+    $reference = trim((string) ($draft['order_reference'] ?? ''));
+    if ($reference === '') {
+        $reference = tt_orders_generate_reference('ttdraft_');
+    }
+    $totals = tt_orders_calculate_totals($items);
+    $merchantName = defined('TT_MERCHANT_NAME') ? (string) TT_MERCHANT_NAME : 'TapTray';
+    $currency = defined('TT_MERCHANT_CURRENCY') ? (string) TT_MERCHANT_CURRENCY : 'EUR';
+    $walletPath = 'Phone wallet';
+    $itemsJson = json_encode(array_values($items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if (!is_string($itemsJson)) {
+        return null;
+    }
+
+    $stmt = $mysqli->prepare("
+        INSERT INTO taptray_orders
+            (order_reference, order_name, customer_token, customer_username, merchant_name, currency, amount_minor, total_quantity, wallet_path, status, items_json)
+        VALUES (?, NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, ?, ?, ?, 'draft', ?)
+        ON DUPLICATE KEY UPDATE
+            order_name = COALESCE(NULLIF(VALUES(order_name), ''), order_name),
+            customer_token = VALUES(customer_token),
+            customer_username = VALUES(customer_username),
+            merchant_name = VALUES(merchant_name),
+            currency = VALUES(currency),
+            amount_minor = VALUES(amount_minor),
+            total_quantity = VALUES(total_quantity),
+            wallet_path = VALUES(wallet_path),
+            items_json = VALUES(items_json),
+            status = IF(status = 'closed', status, 'draft')
+    ");
+    if (!$stmt) {
+        return null;
+    }
+    $stmt->bind_param(
+        'ssssssiiss',
+        $reference,
+        $orderName,
+        $customerToken,
+        $customerUsername,
+        $merchantName,
+        $currency,
+        $totals['amount_minor'],
+        $totals['quantity'],
+        $walletPath,
+        $itemsJson
+    );
+    $stmt->execute();
+    $stmt->close();
+
+    return tt_orders_get_by_reference($mysqli, $reference);
+}
+
 function tt_orders_upsert_paid_order(mysqli $mysqli, array $order): ?array {
     tt_orders_ensure_schema($mysqli);
     $normalized = tt_orders_normalize_order($order);
@@ -226,6 +345,28 @@ function tt_orders_list_open(mysqli $mysqli): array {
         FROM taptray_orders
         WHERE status IN ('queued', 'in_process', 'making', 'ready')
         ORDER BY created_at ASC
+    ");
+    if (!$result) {
+        return [];
+    }
+    $rows = [];
+    while ($row = $result->fetch_assoc()) {
+        $row['items'] = json_decode((string) ($row['items_json'] ?? '[]'), true) ?: [];
+        $row['items'] = tt_orders_attach_recipe_texts($mysqli, $row['items']);
+        $rows[] = $row;
+    }
+    return $rows;
+}
+
+function tt_orders_list_recent_closed(mysqli $mysqli, int $limit = 10): array {
+    tt_orders_ensure_schema($mysqli);
+    $limit = max(1, min(50, $limit));
+    $result = $mysqli->query("
+        SELECT *
+        FROM taptray_orders
+        WHERE status = 'closed'
+        ORDER BY COALESCE(closed_at, updated_at, created_at) DESC
+        LIMIT {$limit}
     ");
     if (!$result) {
         return [];
@@ -380,6 +521,21 @@ function tt_orders_register_push_subscription(mysqli $mysqli, string $orderRefer
         return false;
     }
 
+    $existingStmt = $mysqli->prepare("
+        SELECT id
+        FROM taptray_order_push_subscriptions
+        WHERE order_reference = ?
+          AND endpoint = ?
+        LIMIT 1
+    ");
+    $hadExistingSubscription = false;
+    if ($existingStmt) {
+        $existingStmt->bind_param('ss', $orderReference, $endpoint);
+        $existingStmt->execute();
+        $hadExistingSubscription = (bool) ($existingStmt->get_result()->fetch_assoc() ?: null);
+        $existingStmt->close();
+    }
+
     $stmt = $mysqli->prepare("
         INSERT INTO taptray_order_push_subscriptions
             (order_reference, customer_token, endpoint, p256dh, auth, env)
@@ -396,6 +552,14 @@ function tt_orders_register_push_subscription(mysqli $mysqli, string $orderRefer
     $stmt->bind_param('ssssss', $orderReference, $customerToken, $endpoint, $p256dh, $auth, $env);
     $ok = $stmt->execute();
     $stmt->close();
+
+    if ($ok && !$hadExistingSubscription) {
+        $order = tt_orders_get_by_reference($mysqli, $orderReference);
+        if ($order && trim((string) ($order['status'] ?? '')) === 'ready') {
+            tt_orders_send_ready_push($mysqli, $order);
+        }
+    }
+
     return $ok;
 }
 
@@ -468,7 +632,7 @@ function tt_orders_send_ready_push(mysqli $mysqli, array $order): void {
 
 function tt_orders_update_status(mysqli $mysqli, string $orderReference, string $status): ?array {
     tt_orders_ensure_schema($mysqli);
-    $status = in_array($status, ['queued', 'in_process', 'making', 'ready', 'closed'], true) ? $status : 'in_process';
+    $status = in_array($status, ['draft', 'queued', 'in_process', 'making', 'ready', 'closed'], true) ? $status : 'in_process';
     $stmt = $mysqli->prepare("
         UPDATE taptray_orders
         SET status = ?,

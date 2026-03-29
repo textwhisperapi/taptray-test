@@ -40,7 +40,7 @@ sec_session_start();
 $listOwnerUsername = $_SESSION['username'] ?? '';
 
 //Version is now se globally in service-worker.php
-$version = 'v161';
+$version = 'v171';
 
 
 header('Content-Type: text/html; charset=utf-8');
@@ -141,8 +141,8 @@ if (empty($textContent)) {
 }
 
 
-//Set a proper fallback Open Graph image (600x315 required for Messenger)
-$imageURL = "https://taptray.com/img/wrt.png"; 
+//Set a proper fallback Open Graph image for shared links.
+$imageURL = "https://" . ($_SERVER['HTTP_HOST'] ?? 'test.taptray.com') . "/icons/wrt-v2.png"; 
 //include_once __DIR__ . '/chat.php';
 
 
@@ -561,10 +561,10 @@ window.DEV_MODE = <?= (
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="TapTray" />
   
-    <meta property="og:image" content="https://taptray.com/img/wrt.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:type" content="image/webp" />
+    <meta property="og:image" content="<?= htmlspecialchars($imageURL, ENT_QUOTES, 'UTF-8') ?>" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:image:type" content="image/png" />
   
   
   
@@ -574,7 +574,7 @@ window.DEV_MODE = <?= (
   
     <!--For offline-->
     <link rel="manifest" href="/manifest-v6.json">
-    <link rel="icon" href="/favicon-v6.ico" type="image/x-icon">
+    <link rel="icon" href="/favicon-v8.ico" type="image/x-icon">
     <link rel="apple-touch-icon" href="/icons/wrt.png">
     <meta name="theme-color" content="#222831">
     <meta name="mobile-web-app-capable" content="yes">
@@ -920,7 +920,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
               <div class="menu-item"
                   onclick="closeCreateMenu(); openDriveImportOverlay('tw'); event.stopPropagation();">
-                <img src="/img/wrt.png"
+                <img src="<?= htmlspecialchars($tapTrayIconPath, ENT_QUOTES, 'UTF-8') ?>"
                     style="height:18px; vertical-align:middle; margin-right:6px;">
                 <?= ($lang['import'] ?? 'Import') . ': TapTray' ?>
               </div>
@@ -1345,15 +1345,17 @@ if (!$vapidKey) {
           headers: { "Accept": "application/json" }
         });
         const data = await response.json().catch(() => null);
+        const draftOrder = data && data.draft_order ? data.draft_order : null;
         const orders = Array.isArray(data && data.orders) ? data.orders : [];
         const pastOrders = Array.isArray(data && data.past_orders) ? data.past_orders : [];
         const order = data && data.order ? data.order : null;
+        window.taptrayDraftOrder = draftOrder;
         window.taptrayActiveOrders = orders;
         window.taptrayPastOrders = pastOrders;
         window.taptrayActiveOrder = order;
         ensureTapTrayPushSubscriptionForOrders(orders);
         document.dispatchEvent(new CustomEvent("taptray:active-order-updated", {
-          detail: { order, orders, pastOrders }
+          detail: { order, orders, pastOrders, draftOrder }
         }));
       } catch (err) {
         console.warn("TapTray active order refresh failed", err);

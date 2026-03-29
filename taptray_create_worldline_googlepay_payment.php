@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/sub_worldline_config.php';
+require_once __DIR__ . '/includes/taptray_orders.php';
 sec_session_start();
 
 header('Content-Type: application/json; charset=utf-8');
@@ -60,11 +61,6 @@ if (!defined('TT_WALLET_ENABLED') || !TT_WALLET_ENABLED) {
     tt_payment_error('Wallet-first payment is disabled in TapTray settings.', 409);
 }
 
-$cart = $payload['cart'] ?? null;
-if (!is_array($cart) || !$cart) {
-    tt_payment_error('No TapTray order items were provided.');
-}
-
 $googlePaymentData = $payload['googlePayPaymentData'] ?? null;
 if (!is_array($googlePaymentData)) {
     tt_payment_error('No Google Pay payment data was provided.');
@@ -81,6 +77,20 @@ $merchantCountry = defined('TT_MERCHANT_COUNTRY') ? (string) TT_MERCHANT_COUNTRY
 $walletInfo = is_array($payload['wallet'] ?? null) ? $payload['wallet'] : [];
 $deviceInfo = is_array($payload['device'] ?? null) ? $payload['device'] : [];
 $orderName = trim((string) ($payload['order_name'] ?? ''));
+$requestedOrderReference = trim((string) ($payload['order_reference'] ?? ''));
+$customerToken = tt_orders_customer_token();
+$customerUsername = isset($_SESSION['username']) ? trim((string) $_SESSION['username']) : '';
+$draftOrder = tt_orders_get_customer_checkout_order($mysqli, $customerToken, $requestedOrderReference);
+
+$cart = $payload['cart'] ?? null;
+if ($draftOrder) {
+    $cart = is_array($draftOrder['items'] ?? null) ? $draftOrder['items'] : [];
+    if ($orderName !== '') {
+        $draftOrder = tt_orders_save_draft($mysqli, $customerToken, $customerUsername, $cart, $orderName) ?? $draftOrder;
+    }
+} elseif (!is_array($cart) || !$cart) {
+    tt_payment_error('No TapTray order items were provided.');
+}
 
 $normalizedItems = [];
 $totalMinor = 0;
@@ -125,7 +135,10 @@ if (!$normalizedItems || $totalMinor < 1) {
     tt_payment_error('Your TapTray order has no payable items.');
 }
 
-$orderReference = 'ttpay_' . gmdate('Ymd_His') . '_' . bin2hex(random_bytes(4));
+$orderReference = trim((string) ($draftOrder['order_reference'] ?? ''));
+if ($orderReference === '') {
+    $orderReference = tt_orders_generate_reference('ttpay_');
+}
 
 $worldlinePayload = [
     'order' => [

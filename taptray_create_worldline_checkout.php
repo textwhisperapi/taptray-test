@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/sub_worldline_config.php';
+require_once __DIR__ . '/includes/taptray_orders.php';
 sec_session_start();
 
 use Worldline\Connect\Sdk\V1\Domain\AmountOfMoney;
@@ -69,8 +70,14 @@ if (!is_array($payload)) {
     tt_checkout_error('Invalid checkout payload.');
 }
 
+$requestedOrderReference = trim((string) ($payload['order_reference'] ?? ''));
+$customerToken = tt_orders_customer_token();
+$customerUsername = isset($_SESSION['username']) ? trim((string) $_SESSION['username']) : '';
+$draftOrder = tt_orders_get_customer_checkout_order($mysqli, $customerToken, $requestedOrderReference);
 $cart = $payload['cart'] ?? null;
-if (!is_array($cart) || !$cart) {
+if ($draftOrder) {
+    $cart = is_array($draftOrder['items'] ?? null) ? $draftOrder['items'] : [];
+} elseif (!is_array($cart) || !$cart) {
     tt_checkout_error('No TapTray order items were provided.');
 }
 
@@ -114,7 +121,10 @@ if (!$normalizedItems || $totalMinor < 1) {
     tt_checkout_error('Your TapTray order has no payable items.');
 }
 
-$orderReference = 'ttord_' . gmdate('Ymd_His') . '_' . bin2hex(random_bytes(4));
+$orderReference = trim((string) ($draftOrder['order_reference'] ?? ''));
+if ($orderReference === '') {
+    $orderReference = tt_orders_generate_reference('ttord_');
+}
 $origin = tt_current_origin();
 if ($origin === '') {
     tt_checkout_error('Could not determine TapTray origin URL.', 500);
@@ -125,6 +135,9 @@ $merchantName = defined('TT_MERCHANT_NAME') ? (string) TT_MERCHANT_NAME : 'TapTr
 $merchantCountry = defined('TT_MERCHANT_COUNTRY') ? (string) TT_MERCHANT_COUNTRY : 'IS';
 $wallet = is_array($payload['wallet'] ?? null) ? $payload['wallet'] : [];
 $orderName = trim((string) ($payload['order_name'] ?? ''));
+if ($draftOrder && $orderName !== '') {
+    $draftOrder = tt_orders_save_draft($mysqli, $customerToken, $customerUsername, $cart, $orderName) ?? $draftOrder;
+}
 
 if (!defined('WL_SDK_AVAILABLE') || !WL_SDK_AVAILABLE) {
     tt_checkout_error('Worldline checkout is not available on this server yet. The wallet-first payment step is not wired to a live processor here yet.', 503);

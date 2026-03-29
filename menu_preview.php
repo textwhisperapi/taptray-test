@@ -6,6 +6,7 @@ sec_session_start();
 
 header('Content-Type: text/html; charset=utf-8');
 
+$previewMode = $previewMode ?? 'view';
 $token = trim((string)($_GET['token'] ?? ''));
 $ownerToken = trim((string)($_GET['owner'] ?? ''));
 $surrogate = (int)($_GET['surrogate'] ?? 0);
@@ -53,6 +54,7 @@ function tt_fetch_item_rows(mysqli $mysqli, int $listId): array {
             t.dataname AS title,
             COALESCE(NULLIF(TRIM(t.Text), ''), '') AS body,
             COALESCE(NULLIF(TRIM(s.public_description), ''), '') AS public_description,
+            COALESCE(NULLIF(TRIM(s.detailed_description), ''), '') AS detailed_description,
             COALESCE(NULLIF(TRIM(s.price_label), ''), '') AS price_label,
             COALESCE(NULLIF(TRIM(s.image_url), ''), '') AS image_url,
             COALESCE(NULLIF(TRIM(s.allergens), ''), '') AS allergens,
@@ -72,6 +74,7 @@ function tt_fetch_item_rows(mysqli $mysqli, int $listId): array {
         $body = trim((string)$row['body']);
         $price = trim((string)($row['price_label'] ?? ''));
         $description = trim((string)($row['public_description'] ?? ''));
+        $detailedDescription = trim((string)($row['detailed_description'] ?? ''));
         $imageUrl = trim((string)($row['image_url'] ?? ''));
         $allergens = trim((string)($row['allergens'] ?? ''));
         $detailLines = [];
@@ -102,6 +105,7 @@ function tt_fetch_item_rows(mysqli $mysqli, int $listId): array {
             'surrogate' => (int)$row['surrogate'],
             'title' => (string)$row['title'],
             'description' => $description,
+            'detailed_description' => $detailedDescription,
             'price' => $price,
             'image_url' => $imageUrl,
             'allergens' => $allergens,
@@ -121,6 +125,7 @@ function tt_fetch_single_item(mysqli $mysqli, int $surrogate): ?array {
             t.dataname AS title,
             COALESCE(NULLIF(TRIM(t.Text), ''), '') AS body,
             COALESCE(NULLIF(TRIM(s.public_description), ''), '') AS public_description,
+            COALESCE(NULLIF(TRIM(s.detailed_description), ''), '') AS detailed_description,
             COALESCE(NULLIF(TRIM(s.price_label), ''), '') AS price_label,
             COALESCE(NULLIF(TRIM(s.image_url), ''), '') AS image_url,
             COALESCE(NULLIF(TRIM(s.allergens), ''), '') AS allergens,
@@ -144,6 +149,7 @@ function tt_fetch_single_item(mysqli $mysqli, int $surrogate): ?array {
     $body = trim((string)$row['body']);
     $price = trim((string)($row['price_label'] ?? ''));
     $description = trim((string)($row['public_description'] ?? ''));
+    $detailedDescription = trim((string)($row['detailed_description'] ?? ''));
     $imageUrl = trim((string)($row['image_url'] ?? ''));
     $allergens = trim((string)($row['allergens'] ?? ''));
     $detailLines = [];
@@ -173,6 +179,7 @@ function tt_fetch_single_item(mysqli $mysqli, int $surrogate): ?array {
         'surrogate' => (int)$row['surrogate'],
         'title' => (string)$row['title'],
         'description' => $description,
+        'detailed_description' => $detailedDescription,
         'price' => $price,
         'image_url' => $imageUrl,
         'allergens' => $allergens,
@@ -203,9 +210,11 @@ function tt_fetch_child_sections(mysqli $mysqli, int $parentId): array {
     return $sections;
 }
 
-$pageTitle = 'TapTray Menu Preview';
-$heroTitle = 'Menu Preview';
-$heroSubtitle = 'Customer-facing mobile preview generated from the current management data.';
+$pageTitle = $previewMode === 'recipe' ? 'TapTray Recipe Preview' : 'TapTray Menu Preview';
+$heroTitle = $previewMode === 'recipe' ? 'Recipe Preview' : 'Menu Preview';
+$heroSubtitle = $previewMode === 'recipe'
+    ? 'Recipe preview generated from the current item data.'
+    : 'Read-only item view generated from the current item data.';
 $menus = [];
 $focusedItem = null;
 
@@ -213,7 +222,9 @@ if ($surrogate > 0) {
     $focusedItem = tt_fetch_single_item($mysqli, $surrogate);
     if ($focusedItem) {
         $heroTitle = $focusedItem['title'];
-        $heroSubtitle = 'Preview of the currently selected menu item.';
+        $heroSubtitle = $previewMode === 'recipe'
+            ? 'Recipe preview for the currently selected menu item.'
+            : 'Read-only view of the currently selected menu item.';
     }
 }
 
@@ -258,7 +269,9 @@ if (!$focusedItem && $token !== '') {
             'sections' => $sections,
         ];
         $heroTitle = $menuRow['name'];
-        $heroSubtitle = 'Preview of the selected menu rendered for phone-sized guest browsing.';
+        $heroSubtitle = $previewMode === 'recipe'
+            ? 'Recipe-style preview of the selected menu.'
+            : 'Read-only preview of the selected menu.';
     }
 }
 
@@ -323,7 +336,9 @@ if (!$focusedItem && !$menus && $ownerToken !== '') {
         }
         $stmt->close();
         $heroTitle = ($ownerRow['display_name'] ?: $ownerRow['username']) . ' menus';
-        $heroSubtitle = 'Preview of top-level lists rendered as customer-facing menus.';
+        $heroSubtitle = $previewMode === 'recipe'
+            ? 'Recipe-style preview of top-level lists.'
+            : 'Read-only preview of top-level lists.';
     }
 }
 ?>
@@ -546,6 +561,18 @@ if (!$focusedItem && !$menus && $ownerToken !== '') {
       font-size: 15px;
       line-height: 1.55;
     }
+    .detail-copy {
+      margin-top: 16px;
+      color: var(--tt-muted);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .detail-copy p {
+      margin: 0 0 10px;
+    }
+    .detail-copy p:last-child {
+      margin-bottom: 0;
+    }
     .detail-list {
       margin: 16px 0 0;
       padding-left: 18px;
@@ -588,10 +615,10 @@ if (!$focusedItem && !$menus && $ownerToken !== '') {
     }
   </style>
 </head>
-<body>
+<body data-preview-mode="<?= htmlspecialchars($previewMode, ENT_QUOTES, 'UTF-8') ?>">
   <div class="wrap">
     <section class="hero">
-      <span class="eyebrow">TapTray Preview</span>
+      <span class="eyebrow"><?= $previewMode === 'recipe' ? 'Recipe Preview' : 'Menu Preview' ?></span>
       <h1><?= htmlspecialchars($heroTitle, ENT_QUOTES, 'UTF-8') ?></h1>
       <p><?= htmlspecialchars($heroSubtitle, ENT_QUOTES, 'UTF-8') ?></p>
     </section>
@@ -617,17 +644,21 @@ if (!$focusedItem && !$menus && $ownerToken !== '') {
             <div class="detail-price"><?= htmlspecialchars($focusedItem['price'], ENT_QUOTES, 'UTF-8') ?></div>
           </div>
           <div class="detail-desc"><?= htmlspecialchars($focusedItem['description'], ENT_QUOTES, 'UTF-8') ?></div>
-          <?php if (!empty($focusedItem['details'])): ?>
+          <?php if ($previewMode === 'recipe' && !empty($focusedItem['details'])): ?>
             <ul class="detail-list" style="display:block;">
               <?php foreach ($focusedItem['details'] as $line): ?>
                 <li><?= htmlspecialchars($line, ENT_QUOTES, 'UTF-8') ?></li>
               <?php endforeach; ?>
             </ul>
           <?php endif; ?>
-          <div class="detail-actions">
-            <button class="detail-btn secondary" type="button">Customize</button>
-            <button class="detail-btn primary" type="button">Add to order</button>
-          </div>
+          <?php if ($previewMode !== 'recipe' && trim((string)$focusedItem['detailed_description']) !== ''): ?>
+            <div class="detail-copy">
+              <?php foreach (preg_split('/\R+/', (string)$focusedItem['detailed_description']) as $line): ?>
+                <?php $line = trim((string)$line); if ($line === '') { continue; } ?>
+                <p><?= htmlspecialchars($line, ENT_QUOTES, 'UTF-8') ?></p>
+              <?php endforeach; ?>
+            </div>
+          <?php endif; ?>
         </div>
       </section>
     <?php endif; ?>
@@ -684,7 +715,6 @@ if (!$focusedItem && !$menus && $ownerToken !== '') {
         <ul class="detail-list" id="menuDetailList"></ul>
         <div class="detail-actions">
           <button class="detail-btn secondary" type="button" id="menuDetailClose">Close</button>
-          <button class="detail-btn primary" type="button">Add to order</button>
         </div>
       </div>
     </div>
