@@ -5559,7 +5559,15 @@ window.renderList = function renderList(list, level = 0, section = "owned") {
     
       const target = findListByToken(allLists, listToken);
       if (target && Array.isArray(target.items)) {
-        renderListItems(listContents, listToken, target.items);
+        if (target.items.length) {
+          renderListItems(listContents, listToken, target.items);
+        } else if (Array.isArray(target.children) && target.children.length) {
+          listContents.innerHTML = "";
+          listContents.dataset.loaded = "1";
+          listContents.dataset.jsonRendered = "1";
+        } else {
+          renderListItems(listContents, listToken, target.items);
+        }
       } else {
         let html = await getCachedListItemsHtml(listToken);
         if (!html && navigator.onLine) {
