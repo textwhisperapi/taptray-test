@@ -214,7 +214,7 @@ $completedOrder = [
 $_SESSION['taptray_pending_order'] = $completedOrder;
 $_SESSION['taptray_completed_order'] = $completedOrder;
 
-$successUrl = '/taptray_success_worldline.php?order=' . rawurlencode($orderReference);
+$successUrl = '/taptray_worldline_success.php?order=' . rawurlencode($orderReference);
 
 echo json_encode([
     'ok' => true,

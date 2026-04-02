@@ -169,7 +169,7 @@ $orderReference = trim((string) ($draftOrder['order_reference'] ?? ''));
 if ($orderReference === '') {
     $orderReference = tt_orders_generate_reference('ttrpay_');
 }
-$returnUrl = rapyd_origin_url() . '/taptray_success_worldline.php?order=' . rawurlencode($orderReference);
+$returnUrl = rapyd_origin_url() . '/taptray_worldline_success.php?order=' . rawurlencode($orderReference);
 
 $completedOrder = [
     'reference' => $orderReference,

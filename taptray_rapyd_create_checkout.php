@@ -96,7 +96,7 @@ if ($orderReference === '') {
     $orderReference = tt_orders_generate_reference('ttrapyd_');
 }
 $origin = rapyd_origin_url();
-$returnUrl = $origin . '/taptray_success_worldline.php?order=' . rawurlencode($orderReference);
+$returnUrl = $origin . '/taptray_worldline_success.php?order=' . rawurlencode($orderReference);
 $currency = defined('TT_MERCHANT_CURRENCY') ? (string) TT_MERCHANT_CURRENCY : 'ISK';
 $merchantName = defined('TT_MERCHANT_NAME') ? (string) TT_MERCHANT_NAME : 'TapTray';
 $merchantCountry = defined('TT_MERCHANT_COUNTRY') ? (string) TT_MERCHANT_COUNTRY : 'IS';

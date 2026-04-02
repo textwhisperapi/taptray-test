@@ -129,7 +129,7 @@ $origin = tt_current_origin();
 if ($origin === '') {
     tt_checkout_error('Could not determine TapTray origin URL.', 500);
 }
-$returnUrl = $origin . '/taptray_success_worldline.php?order=' . rawurlencode($orderReference);
+$returnUrl = $origin . '/taptray_worldline_success.php?order=' . rawurlencode($orderReference);
 $currency = defined('TT_MERCHANT_CURRENCY') ? (string) TT_MERCHANT_CURRENCY : 'ISK';
 $merchantName = defined('TT_MERCHANT_NAME') ? (string) TT_MERCHANT_NAME : 'TapTray';
 $merchantCountry = defined('TT_MERCHANT_COUNTRY') ? (string) TT_MERCHANT_COUNTRY : 'IS';

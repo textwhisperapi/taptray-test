@@ -260,9 +260,9 @@ if (is_array($lastLog)) {
 		      <div class="actions">
 		        <a class="btn" href="/taptray_payment_self_test.php" target="_blank" rel="noopener">Run config self-test</a>
 		        <a class="btn" href="/taptray_worldline_hello.php?country=<?= rawurlencode($diag['country']) ?>&currency=<?= rawurlencode($diag['currency']) ?>&amount_minor=1&product_id=1" target="_blank" rel="noopener">Run hello test</a>
-		        <a class="btn btn-primary" href="/taptray_get_worldline_product_320.php?country=<?= rawurlencode($diag['country']) ?>&currency=<?= rawurlencode($diag['currency']) ?>&amount_minor=2" target="_blank" rel="noopener">Retest product 320</a>
+		        <a class="btn btn-primary" href="/taptray_worldline_get_product_320.php?country=<?= rawurlencode($diag['country']) ?>&currency=<?= rawurlencode($diag['currency']) ?>&amount_minor=2" target="_blank" rel="noopener">Retest product 320</a>
 		        <a class="btn" href="/checkout.php">Open checkout</a>
-	        <a class="btn" href="/taptray_success_worldline.php?test=1">Open post-purchase preview</a>
+	        <a class="btn" href="/taptray_worldline_success.php?test=1">Open post-purchase preview</a>
 	      </div>
     </section>
   </div>

@@ -93,8 +93,10 @@ $ttMerchantConfig = [
     }
     .checkout-layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+      grid-template-columns: 1fr;
       gap: 14px;
+      max-width: 760px;
+      margin: 0 auto;
     }
     .checkout-card {
       background: var(--surface);
@@ -277,15 +279,31 @@ $ttMerchantConfig = [
     .wallet-btn.apple { background: #111; color: #fff; border-color: #111; }
     .wallet-btn.google { background: #fff; color: #111; }
     .wallet-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-    #checkoutTopPayBtn,
-    #checkoutPayNowBtn {
+    #checkoutTopPayBtn {
       padding: 12px 14px;
       font-size: 14px;
     }
-    #checkoutTopPrimaryLabel,
-    #checkoutPrimaryLabel {
+    #checkoutTopPrimaryLabel {
       font-size: 14px;
       line-height: 1.2;
+    }
+    .checkout-amount {
+      display: grid;
+      gap: 4px;
+      padding: 10px 0 4px;
+    }
+    .checkout-amount-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .checkout-amount-value {
+      color: var(--text);
+      font-size: clamp(34px, 6vw, 48px);
+      line-height: 1;
+      font-weight: 900;
     }
     .wallet-fallback {
       display: none;
@@ -342,6 +360,39 @@ $ttMerchantConfig = [
       display: grid;
       gap: 10px;
     }
+    .checkout-more {
+      margin-top: 6px;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+    }
+    .checkout-more.is-standalone {
+      margin-top: 0;
+      border-top: 0;
+      padding-top: 0;
+    }
+    .checkout-more summary {
+      cursor: pointer;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 800;
+      list-style: none;
+      min-height: 48px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, #ffffff, #f7faff);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .checkout-more summary::-webkit-details-marker {
+      display: none;
+    }
+    .checkout-more-body {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
     .checkout-debug {
       margin-top: 10px;
       padding: 12px 14px;
@@ -370,13 +421,11 @@ $ttMerchantConfig = [
       .checkout-card-head { padding: 12px 12px 6px; }
       .checkout-items { padding: 2px 10px 10px; }
       .checkout-summary { padding: 12px; }
-      #checkoutTopPayBtn,
-      #checkoutPayNowBtn {
+      #checkoutTopPayBtn {
         padding: 11px 12px;
         font-size: 13px;
       }
-      #checkoutTopPrimaryLabel,
-      #checkoutPrimaryLabel {
+      #checkoutTopPrimaryLabel {
         font-size: 13px;
       }
     }
@@ -392,17 +441,17 @@ $ttMerchantConfig = [
     <div class="checkout-layout">
       <section class="checkout-card">
         <div class="checkout-top-pay">
+          <div class="checkout-amount">
+            <div class="checkout-amount-label">Confirm amount</div>
+            <div class="checkout-amount-value" id="checkoutAmountValue">0</div>
+          </div>
           <button class="wallet-btn primary" type="button" id="checkoutTopPayBtn">
             <span id="checkoutTopPrimaryLabel" class="checkout-primary-label">Confirm and pay</span>
           </button>
         </div>
         <div class="checkout-card-head">
           <div class="checkout-kicker">Your order</div>
-          <div class="checkout-provider-badge">Provider: <?= htmlspecialchars(strtoupper($paymentProvider), ENT_QUOTES, 'UTF-8') ?></div>
           <h1>Review before payment</h1>
-          <p class="checkout-sub"><?= htmlspecialchars($paymentProvider === 'rapyd'
-            ? 'Google Pay runs directly when available. Apple Pay still opens the Rapyd hosted checkout.'
-            : 'Phone wallet comes first. If the device has no default wallet path, TapTray will fall back to other payment options.', ENT_QUOTES, 'UTF-8') ?></p>
         </div>
         <div class="checkout-order-name">
           <label for="checkoutOrderName">Order name</label>
@@ -411,27 +460,28 @@ $ttMerchantConfig = [
         <div id="checkoutItems" class="checkout-items"></div>
       </section>
 
-      <aside class="checkout-card">
-        <div class="checkout-summary">
-          <div class="checkout-kicker">Payment</div>
-          <div class="checkout-row"><span>Items</span><strong id="checkoutQty">0</strong></div>
-          <div class="checkout-row"><span>Subtotal</span><strong id="checkoutSubtotal">0</strong></div>
-          <div class="checkout-row checkout-total"><span>Total</span><strong id="checkoutTotal">0</strong></div>
-          <div class="wallet-stack">
-            <button class="wallet-btn primary" type="button" id="checkoutPayNowBtn">
-              <span id="checkoutPrimaryLabel" class="checkout-primary-label">Confirm and pay</span>
-            </button>
-            <button class="wallet-btn apple" type="button" id="checkoutTestApplePayBtn"><?= htmlspecialchars($paymentProvider === 'rapyd' ? 'Open Hosted Wallet Test' : 'Test Apple Pay Route', ENT_QUOTES, 'UTF-8') ?></button>
-            <div id="checkoutPrimaryNote" class="checkout-primary-note">Checking for your phone wallet…</div>
-          </div>
-          <div class="checkout-links">
-            <a href="/taptray_success_worldline.php?test=1" id="checkoutViewSuccessBtn" class="checkout-test-link">View post-purchase screen</a>
-            <a href="<?= htmlspecialchars($paymentProvider === 'rapyd' ? '/test_rapyd_api.php' : '/taptray_payment_diagnostics.php', ENT_QUOTES, 'UTF-8') ?>" class="checkout-test-link"><?= htmlspecialchars($paymentProvider === 'rapyd' ? 'Open Rapyd sandbox test' : 'Open payment diagnostics', ENT_QUOTES, 'UTF-8') ?></a>
-          </div>
-          <div id="checkoutDebug" class="checkout-debug">Wallet detection info will appear here when you press pay.</div>
-          <p class="checkout-note">TapTray keeps one clear pay step. Current provider: <strong><?= htmlspecialchars(strtoupper($paymentProvider), ENT_QUOTES, 'UTF-8') ?></strong>.</p>
-        </div>
-      </aside>
+      <section class="checkout-card">
+          <details class="checkout-more is-standalone">
+            <summary>Payment details</summary>
+            <div class="checkout-more-body">
+              <div class="checkout-provider-badge">Provider: <?= htmlspecialchars(strtoupper($paymentProvider), ENT_QUOTES, 'UTF-8') ?></div>
+              <p class="checkout-sub"><?= htmlspecialchars($paymentProvider === 'rapyd'
+                ? 'Google Pay runs directly when available. Apple Pay still opens the Rapyd hosted checkout.'
+                : 'Phone wallet comes first. If the device has no default wallet path, TapTray will fall back to other payment options.', ENT_QUOTES, 'UTF-8') ?></p>
+              <div class="checkout-row"><span>Items</span><strong id="checkoutQty">0</strong></div>
+              <div class="checkout-row"><span>Subtotal</span><strong id="checkoutSubtotal">0</strong></div>
+              <div class="checkout-row checkout-total"><span>Total</span><strong id="checkoutTotal">0</strong></div>
+              <div id="checkoutPrimaryNote" class="checkout-primary-note">Checking for your phone wallet…</div>
+              <button class="wallet-btn apple" type="button" id="checkoutTestApplePayBtn"><?= htmlspecialchars($paymentProvider === 'rapyd' ? 'Open Hosted Wallet Test' : 'Test Apple Pay Route', ENT_QUOTES, 'UTF-8') ?></button>
+              <div class="checkout-links">
+                <a href="/taptray_worldline_success.php?test=1" id="checkoutViewSuccessBtn" class="checkout-test-link">View post-purchase screen</a>
+                <a href="<?= htmlspecialchars($paymentProvider === 'rapyd' ? '/test_rapyd_api.php' : '/taptray_payment_diagnostics.php', ENT_QUOTES, 'UTF-8') ?>" class="checkout-test-link"><?= htmlspecialchars($paymentProvider === 'rapyd' ? 'Open Rapyd sandbox test' : 'Open payment diagnostics', ENT_QUOTES, 'UTF-8') ?></a>
+              </div>
+              <div id="checkoutDebug" class="checkout-debug">Wallet detection info will appear here when you press pay.</div>
+              <p class="checkout-note">TapTray keeps one clear pay step. Current provider: <strong><?= htmlspecialchars(strtoupper($paymentProvider), ENT_QUOTES, 'UTF-8') ?></strong>.</p>
+            </div>
+          </details>
+      </section>
     </div>
   </div>
 
@@ -515,14 +565,14 @@ $ttMerchantConfig = [
       environment: String(TAPTRAY_PAYMENT_CONTEXT.googlePayEnvironment || "TEST").toUpperCase(),
       merchantId: String(TAPTRAY_PAYMENT_CONTEXT.googlePayMerchantId || "").trim(),
       gatewayMerchantId: String(TAPTRAY_PAYMENT_CONTEXT.worldlineGatewayMerchantId || "").trim(),
-      product320Endpoint: "/taptray_get_worldline_product_320.php",
-      createPaymentEndpoint: "/taptray_create_worldline_googlepay_payment.php",
-      createCheckoutEndpoint: "/taptray_create_worldline_checkout.php"
+      product320Endpoint: "/taptray_worldline_get_product_320.php",
+      createPaymentEndpoint: "/taptray_worldline_create_googlepay_payment.php",
+      createCheckoutEndpoint: "/taptray_worldline_create_checkout.php"
     };
     const TAPTRAY_RAPYD = {
-      configEndpoint: "/taptray_get_rapyd_googlepay_config.php",
-      createCheckoutEndpoint: "/taptray_create_rapyd_checkout.php",
-      createPaymentEndpoint: "/taptray_create_rapyd_googlepay_payment.php"
+      configEndpoint: "/taptray_rapyd_get_googlepay_config.php",
+      createCheckoutEndpoint: "/taptray_rapyd_create_checkout.php",
+      createPaymentEndpoint: "/taptray_rapyd_create_googlepay_payment.php"
     };
     const tapTrayGooglePayState = {
       paymentsClient: null,
@@ -573,12 +623,16 @@ $ttMerchantConfig = [
       const qtyEl = document.getElementById("checkoutQty");
       const subtotalEl = document.getElementById("checkoutSubtotal");
       const totalEl = document.getElementById("checkoutTotal");
+      const amountValueEl = document.getElementById("checkoutAmountValue");
       const totals = getCheckoutTotals(entries);
 
       qtyEl.textContent = String(totals.totalQty);
       subtotalEl.textContent = String(totals.totalPrice);
       totalEl.textContent = String(totals.totalPrice);
-      document.querySelectorAll("#checkoutPrimaryLabel, #checkoutTopPrimaryLabel").forEach((label) => {
+      if (amountValueEl) {
+        amountValueEl.textContent = formatDisplayAmount(totals.totalPrice);
+      }
+      document.querySelectorAll("#checkoutTopPrimaryLabel").forEach((label) => {
         label.textContent = `Confirm and pay ${formatDisplayAmount(totals.totalPrice)}`;
       });
 
@@ -901,11 +955,11 @@ $ttMerchantConfig = [
     }
 
     function setPrimaryButtonLoading(isLoading) {
-      document.querySelectorAll("#checkoutPayNowBtn, #checkoutTopPayBtn").forEach((button) => {
+      document.querySelectorAll("#checkoutTopPayBtn").forEach((button) => {
         button.disabled = isLoading;
         button.dataset.loading = isLoading ? "1" : "0";
       });
-      document.querySelectorAll("#checkoutPrimaryLabel, #checkoutTopPrimaryLabel").forEach((label) => {
+      document.querySelectorAll("#checkoutTopPrimaryLabel").forEach((label) => {
         if (isLoading) {
           label.dataset.originalLabel = label.textContent || "Confirm and pay";
           label.textContent = "Opening wallet…";
@@ -963,7 +1017,7 @@ $ttMerchantConfig = [
         },
         items: entries
       };
-      return `/taptray_success_worldline.php?test=1&payload=${encodeURIComponent(JSON.stringify(payload))}`;
+      return `/taptray_worldline_success.php?test=1&payload=${encodeURIComponent(JSON.stringify(payload))}`;
     }
 
     async function startWalletPayment() {
@@ -1054,7 +1108,7 @@ $ttMerchantConfig = [
         ].join("\n");
       }
 
-      window.location.href = data.success_url || "/taptray_success_worldline.php";
+      window.location.href = data.success_url || "/taptray_worldline_success.php";
     }
 
     async function startRapydGooglePayment(walletInfo, entries) {
@@ -1112,7 +1166,7 @@ $ttMerchantConfig = [
         ].join("\n");
       }
 
-      window.location.href = data.redirect_url || data.success_url || "/taptray_success_worldline.php";
+      window.location.href = data.redirect_url || data.success_url || "/taptray_worldline_success.php";
     }
 
     async function startApplePayHostedCheckoutTest() {
@@ -1183,10 +1237,8 @@ $ttMerchantConfig = [
         showCheckoutError(error?.message || "TapTray could not prepare wallet payment.");
       }
 
-      const primaryBtn = document.getElementById("checkoutPayNowBtn");
-      const topPrimaryBtn = document.getElementById("checkoutTopPayBtn");
+      const primaryBtn = document.getElementById("checkoutTopPayBtn");
       primaryBtn?.addEventListener("click", startWalletPayment);
-      topPrimaryBtn?.addEventListener("click", startWalletPayment);
       document.getElementById("checkoutTestApplePayBtn")?.addEventListener("click", startApplePayHostedCheckoutTest);
     });
   </script>
