@@ -99,6 +99,7 @@ if ($cardNetwork === '') {
 $currency = defined('TT_MERCHANT_CURRENCY') ? (string) TT_MERCHANT_CURRENCY : 'EUR';
 $merchantName = defined('TT_MERCHANT_NAME') ? (string) TT_MERCHANT_NAME : 'TapTray';
 $merchantCountry = defined('TT_MERCHANT_COUNTRY') ? (string) TT_MERCHANT_COUNTRY : 'IS';
+$destinationWallet = trim(tt_env_value('TT_RAPYD_EWALLET', ''));
 $walletInfo = is_array($payload['wallet'] ?? null) ? $payload['wallet'] : [];
 $orderName = trim((string) ($payload['order_name'] ?? ''));
 $requestedOrderReference = trim((string) ($payload['order_reference'] ?? ''));
@@ -220,6 +221,10 @@ $requestBody = [
         ],
     ],
 ];
+
+if ($destinationWallet !== '') {
+    $requestBody['ewallet'] = $destinationWallet;
+}
 
 $response = rapyd_request('post', '/v1/payments', $requestBody);
 $data = is_array($response['response']['data'] ?? null) ? $response['response']['data'] : [];

@@ -49,6 +49,7 @@ function mgm_nav_items(): array {
         'traffic' => ['label' => 'Traffic', 'href' => '/mgm_traffic_overview.php'],
         'pricing' => ['label' => 'Pricing', 'href' => '/mgm_price_settings.php'],
         'payments' => ['label' => 'Payments', 'href' => '/mgm_payment_settings.php'],
+        'customer_payments' => ['label' => 'Customer Payment Settings', 'href' => '/mgm_customer_payment_settings.php'],
         'contracts' => ['label' => 'Contracts', 'href' => '#'],
         'users' => ['label' => 'Users', 'href' => '/mgm_users.php'],
         'insights' => ['label' => 'Insights', 'href' => '#'],

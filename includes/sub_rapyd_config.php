@@ -58,7 +58,18 @@ if (!function_exists('tt_env_first')) {
 }
 
 $rapydHost = $_SERVER['HTTP_HOST'] ?? '';
-$rapydIsLive = stripos($rapydHost, 'taptray.com') !== false && stripos($rapydHost, 'test.taptray.com') === false;
+$rapydMode = strtolower(trim(tt_env_value('TT_RAPYD_MODE', 'sandbox')));
+if (!in_array($rapydMode, ['sandbox', 'live', 'host_based'], true)) {
+    $rapydMode = 'sandbox';
+}
+
+if ($rapydMode === 'live') {
+    $rapydIsLive = true;
+} elseif ($rapydMode === 'host_based') {
+    $rapydIsLive = stripos($rapydHost, 'taptray.com') !== false && stripos($rapydHost, 'test.taptray.com') === false;
+} else {
+    $rapydIsLive = false;
+}
 
 if ($rapydIsLive) {
     define('RAPYD_ENV', 'live');

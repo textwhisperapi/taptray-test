@@ -47,6 +47,8 @@ $paymentSettingKeys = [
     'TT_MERCHANT_DESCRIPTOR',
     'TT_MERCHANT_COUNTRY',
     'TT_MERCHANT_CURRENCY',
+    'TT_RAPYD_MODE',
+    'TT_RAPYD_EWALLET',
     'TT_WALLET_MODE',
     'TT_WALLET_ENABLED',
     'TT_GOOGLE_PAY_ENVIRONMENT',
@@ -67,12 +69,21 @@ $paymentSettingKeys = [
 
 $saveState = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['mgm_action'] ?? '') === 'save_payment_settings') {
+    $currentTestSecret = (string)tw_get_env('TT_WL_TEST_API_SECRET', '');
+    $currentLiveSecret = (string)tw_get_env('TT_WL_LIVE_API_SECRET', '');
+    $postedTestSecret = trim((string)($_POST['TT_WL_TEST_API_SECRET'] ?? ''));
+    $postedLiveSecret = trim((string)($_POST['TT_WL_LIVE_API_SECRET'] ?? ''));
+
     $payload = [
         'TT_PAYMENT_MODEL' => preg_replace('/[^a-z_]/', '', strtolower(trim((string)($_POST['TT_PAYMENT_MODEL'] ?? 'merchant_of_record')))) ?: 'merchant_of_record',
         'TT_MERCHANT_NAME' => trim((string)($_POST['TT_MERCHANT_NAME'] ?? 'TapTray')) ?: 'TapTray',
         'TT_MERCHANT_DESCRIPTOR' => trim((string)($_POST['TT_MERCHANT_DESCRIPTOR'] ?? 'TapTray')) ?: 'TapTray',
         'TT_MERCHANT_COUNTRY' => strtoupper(substr(trim((string)($_POST['TT_MERCHANT_COUNTRY'] ?? 'NL')), 0, 2)) ?: 'NL',
         'TT_MERCHANT_CURRENCY' => strtoupper(substr(trim((string)($_POST['TT_MERCHANT_CURRENCY'] ?? 'EUR')), 0, 3)) ?: 'EUR',
+        'TT_RAPYD_MODE' => in_array(strtolower(trim((string)($_POST['TT_RAPYD_MODE'] ?? 'sandbox'))), ['sandbox', 'live', 'host_based'], true)
+            ? strtolower(trim((string)($_POST['TT_RAPYD_MODE'] ?? 'sandbox')))
+            : 'sandbox',
+        'TT_RAPYD_EWALLET' => trim((string)($_POST['TT_RAPYD_EWALLET'] ?? '')),
         'TT_WALLET_MODE' => preg_replace('/[^a-z_]/', '', strtolower(trim((string)($_POST['TT_WALLET_MODE'] ?? 'default_wallet_first')))) ?: 'default_wallet_first',
         'TT_WALLET_ENABLED' => !empty($_POST['TT_WALLET_ENABLED']) ? '1' : '0',
         'TT_GOOGLE_PAY_ENVIRONMENT' => in_array(strtoupper(trim((string)($_POST['TT_GOOGLE_PAY_ENVIRONMENT'] ?? 'TEST'))), ['TEST', 'PRODUCTION'], true)
@@ -81,12 +92,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['mgm_action'] ?? '') === 's
         'TT_GOOGLE_PAY_MERCHANT_ID' => trim((string)($_POST['TT_GOOGLE_PAY_MERCHANT_ID'] ?? '')),
         'TT_PLATFORM_FEE_BPS' => (string)max(0, (int)($_POST['TT_PLATFORM_FEE_BPS'] ?? 0)),
         'TT_WL_TEST_API_KEY_ID' => trim((string)($_POST['TT_WL_TEST_API_KEY_ID'] ?? '')),
-        'TT_WL_TEST_API_SECRET' => trim((string)($_POST['TT_WL_TEST_API_SECRET'] ?? '')),
+        'TT_WL_TEST_API_SECRET' => $postedTestSecret !== '' ? $postedTestSecret : $currentTestSecret,
         'TT_WL_TEST_MERCHANT_ID' => trim((string)($_POST['TT_WL_TEST_MERCHANT_ID'] ?? '')),
         'TT_WL_TEST_ENDPOINT' => trim((string)($_POST['TT_WL_TEST_ENDPOINT'] ?? 'https://payment.preprod.direct.worldline-solutions.com')) ?: 'https://payment.preprod.direct.worldline-solutions.com',
         'TT_WL_TEST_CHECKOUT_SUBDOMAIN' => trim((string)($_POST['TT_WL_TEST_CHECKOUT_SUBDOMAIN'] ?? 'https://payment.pay1.preprod.checkout.worldline-solutions.com')) ?: 'https://payment.pay1.preprod.checkout.worldline-solutions.com',
         'TT_WL_LIVE_API_KEY_ID' => trim((string)($_POST['TT_WL_LIVE_API_KEY_ID'] ?? '')),
-        'TT_WL_LIVE_API_SECRET' => trim((string)($_POST['TT_WL_LIVE_API_SECRET'] ?? '')),
+        'TT_WL_LIVE_API_SECRET' => $postedLiveSecret !== '' ? $postedLiveSecret : $currentLiveSecret,
         'TT_WL_LIVE_MERCHANT_ID' => trim((string)($_POST['TT_WL_LIVE_MERCHANT_ID'] ?? '')),
         'TT_WL_LIVE_ENDPOINT' => trim((string)($_POST['TT_WL_LIVE_ENDPOINT'] ?? 'https://payment.direct.worldline-solutions.com')) ?: 'https://payment.direct.worldline-solutions.com',
         'TT_WL_LIVE_CHECKOUT_SUBDOMAIN' => trim((string)($_POST['TT_WL_LIVE_CHECKOUT_SUBDOMAIN'] ?? '')) ,
@@ -148,6 +159,18 @@ mgm_render_shell_start(
                 <input type="text" name="TT_MERCHANT_CURRENCY" value="<?= mgm_h($paymentContext['TT_MERCHANT_CURRENCY'] ?? 'EUR') ?>" maxlength="3">
               </label>
               <label>
+                <span>Rapyd mode</span>
+                <select name="TT_RAPYD_MODE">
+                  <option value="sandbox" <?= strtolower((string)($paymentContext['TT_RAPYD_MODE'] ?? 'sandbox')) === 'sandbox' ? 'selected' : '' ?>>Sandbox for all hosts</option>
+                  <option value="live" <?= strtolower((string)($paymentContext['TT_RAPYD_MODE'] ?? 'sandbox')) === 'live' ? 'selected' : '' ?>>Live for all hosts</option>
+                  <option value="host_based" <?= strtolower((string)($paymentContext['TT_RAPYD_MODE'] ?? 'sandbox')) === 'host_based' ? 'selected' : '' ?>>Host based: taptray.com live, test.taptray.com sandbox</option>
+                </select>
+              </label>
+              <label>
+                <span>Rapyd destination wallet</span>
+                <input type="text" name="TT_RAPYD_EWALLET" value="<?= mgm_h($paymentContext['TT_RAPYD_EWALLET'] ?? '') ?>" placeholder="ewallet_...">
+              </label>
+              <label>
                 <span>Wallet mode</span>
                 <input type="text" name="TT_WALLET_MODE" value="<?= mgm_h($paymentContext['TT_WALLET_MODE'] ?? 'default_wallet_first') ?>">
               </label>
@@ -175,6 +198,8 @@ mgm_render_shell_start(
               </label>
             </div>
             <p class="mgm-panel-intro" style="margin:10px 0 0;">TapTray now uses the current Worldline PSPID as the Google Pay gateway merchant ID for this wallet flow, so there is no separate editable gateway ID here.</p>
+            <p class="mgm-panel-intro" style="margin:10px 0 0;">Rapyd mode lets you force sandbox or live across both hosts, or keep the old host-based split.</p>
+            <p class="mgm-panel-intro" style="margin:10px 0 0;">Rapyd destination wallet is optional. If set, TapTray will request that Rapyd deposits collected funds into that wallet.</p>
             <h3 style="margin:18px 0 10px;">Worldline Test API Access</h3>
             <p class="mgm-panel-intro" style="margin-bottom:12px;">These credentials and PSPIDs are the Worldline API access values used by TapTray diagnostics and wallet checkout tests.</p>
             <div class="mgm-settings-grid">
@@ -184,7 +209,7 @@ mgm_render_shell_start(
               </label>
               <label>
                 <span>Test API secret</span>
-                <input type="text" name="TT_WL_TEST_API_SECRET" value="<?= mgm_h($paymentContext['TT_WL_TEST_API_SECRET'] ?? '') ?>">
+                <input type="password" name="TT_WL_TEST_API_SECRET" value="" autocomplete="new-password" placeholder="Leave blank to keep current secret">
               </label>
               <label>
                 <span>Test merchant ID / PSPID</span>
@@ -208,7 +233,7 @@ mgm_render_shell_start(
               </label>
               <label>
                 <span>Live API secret</span>
-                <input type="text" name="TT_WL_LIVE_API_SECRET" value="<?= mgm_h($paymentContext['TT_WL_LIVE_API_SECRET'] ?? '') ?>">
+                <input type="password" name="TT_WL_LIVE_API_SECRET" value="" autocomplete="new-password" placeholder="Leave blank to keep current secret">
               </label>
               <label>
                 <span>Live merchant ID / PSPID</span>

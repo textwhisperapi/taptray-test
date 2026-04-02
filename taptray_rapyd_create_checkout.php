@@ -100,6 +100,7 @@ $returnUrl = $origin . '/taptray_worldline_success.php?order=' . rawurlencode($o
 $currency = defined('TT_MERCHANT_CURRENCY') ? (string) TT_MERCHANT_CURRENCY : 'ISK';
 $merchantName = defined('TT_MERCHANT_NAME') ? (string) TT_MERCHANT_NAME : 'TapTray';
 $merchantCountry = defined('TT_MERCHANT_COUNTRY') ? (string) TT_MERCHANT_COUNTRY : 'IS';
+$destinationWallet = trim(tt_env_value('TT_RAPYD_EWALLET', ''));
 $wallet = is_array($payload['wallet'] ?? null) ? $payload['wallet'] : [];
 $orderName = trim((string) ($payload['order_name'] ?? ''));
 if ($draftOrder && $orderName !== '') {
@@ -144,6 +145,10 @@ $body = [
     'complete_payment_url' => $returnUrl,
     'error_payment_url' => $origin . '/checkout.php?provider=rapyd',
 ];
+
+if ($destinationWallet !== '') {
+    $body['ewallet'] = $destinationWallet;
+}
 
 $response = rapyd_request('post', '/v1/checkout', $body);
 $data = is_array($response['response']['data'] ?? null) ? $response['response']['data'] : [];
