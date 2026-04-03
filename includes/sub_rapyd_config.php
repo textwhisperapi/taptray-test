@@ -120,6 +120,25 @@ function rapyd_signature(string $method, string $pathWithQuery, string $salt, st
     return base64_encode($hash);
 }
 
+function rapyd_webhook_signature(string $webhookUrl, string $salt, string $timestamp, string $bodyString): string {
+    $toSign = $webhookUrl . $salt . $timestamp . RAPYD_ACCESS_KEY . RAPYD_SECRET_KEY . $bodyString;
+    $hash = hash_hmac('sha256', $toSign, RAPYD_SECRET_KEY);
+    return base64_encode($hash);
+}
+
+function rapyd_current_request_url(): string {
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (isset($_SERVER['SERVER_PORT']) && (string) $_SERVER['SERVER_PORT'] === '443');
+    $scheme = $isHttps ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'test.taptray.com';
+    $uri = $_SERVER['REQUEST_URI'] ?? '/';
+    $questionPos = strpos($uri, '?');
+    if ($questionPos !== false) {
+        $uri = substr($uri, 0, $questionPos);
+    }
+    return $scheme . '://' . $host . $uri;
+}
+
 function rapyd_mask_value(string $value, int $prefix = 4, int $suffix = 4): string {
     $value = trim($value);
     if ($value === '') {
@@ -132,14 +151,14 @@ function rapyd_mask_value(string $value, int $prefix = 4, int $suffix = 4): stri
     return substr($value, 0, $prefix) . str_repeat('*', max(4, $length - $prefix - $suffix)) . substr($value, -$suffix);
 }
 
-function rapyd_request(string $method, string $path, ?array $body = null, array $query = []): array {
+function rapyd_request(string $method, string $path, ?array $body = null, array $query = [], string $idempotencyKey = ''): array {
     $method = strtolower(trim($method));
     $pathWithQuery = rapyd_build_path($path, $query);
     $url = rtrim(RAPYD_ENDPOINT, '/') . $pathWithQuery;
     $bodyString = rapyd_compact_json($body);
     $salt = rapyd_random_string(12);
     $timestamp = (string) time();
-    $idempotency = rapyd_random_string(16);
+    $idempotency = trim($idempotencyKey) !== '' ? trim($idempotencyKey) : rapyd_random_string(16);
     $signature = rapyd_signature($method, $pathWithQuery, $salt, $timestamp, $bodyString);
 
     $headers = [

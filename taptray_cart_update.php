@@ -30,7 +30,10 @@ if (!in_array($action, ['add', 'reduce', 'remove'], true) || !$item) {
 $surrogate = (int) ($item['surrogate'] ?? 0);
 $title = trim((string) ($item['title'] ?? ''));
 $priceLabel = trim((string) ($item['price_label'] ?? ''));
-if ($surrogate < 1 || $title === '' || $priceLabel === '') {
+$ownerId = (int) ($item['owner_id'] ?? 0);
+$ownerUsername = trim((string) ($item['owner_username'] ?? ''));
+$ownerDisplayName = trim((string) ($item['owner_display_name'] ?? ''));
+if ($surrogate < 1 || $title === '' || $priceLabel === '' || ($ownerId < 1 && $ownerUsername === '')) {
     http_response_code(400);
     echo json_encode(['ok' => false, 'error' => 'Incomplete TapTray item data.']);
     exit;
@@ -38,7 +41,12 @@ if ($surrogate < 1 || $title === '' || $priceLabel === '') {
 
 $currentToken = tt_orders_customer_token();
 $currentUsername = isset($_SESSION['username']) ? trim((string) $_SESSION['username']) : '';
-$draft = tt_orders_get_draft_for_customer($mysqli, $currentToken);
+$owner = [
+    'id' => $ownerId,
+    'username' => $ownerUsername,
+    'display_name' => $ownerDisplayName,
+];
+$draft = tt_orders_get_draft_for_customer_owner($mysqli, $currentToken, $owner);
 $items = is_array($draft['items'] ?? null) ? $draft['items'] : [];
 $bySurrogate = [];
 foreach ($items as $row) {
@@ -56,6 +64,9 @@ $existing = is_array($bySurrogate[$key] ?? null) ? $bySurrogate[$key] : [
     'id' => (string) ($item['id'] ?? $key),
     'surrogate' => $surrogate,
     'token' => trim((string) ($item['token'] ?? '')),
+    'owner_id' => $ownerId,
+    'owner_username' => $ownerUsername,
+    'owner_display_name' => $ownerDisplayName !== '' ? $ownerDisplayName : $ownerUsername,
     'title' => $title,
     'quantity' => 0,
     'price_label' => $priceLabel,
@@ -65,6 +76,16 @@ $existing = is_array($bySurrogate[$key] ?? null) ? $bySurrogate[$key] : [
     'unit_minor' => (int) ($item['unit_minor'] ?? 0),
     'line_minor' => 0,
 ];
+
+if ((int) ($existing['owner_id'] ?? 0) < 1) {
+    $existing['owner_id'] = $ownerId;
+}
+if (trim((string) ($existing['owner_username'] ?? '')) === '') {
+    $existing['owner_username'] = $ownerUsername;
+}
+if (trim((string) ($existing['owner_display_name'] ?? '')) === '') {
+    $existing['owner_display_name'] = $ownerDisplayName !== '' ? $ownerDisplayName : $ownerUsername;
+}
 
 if ($action === 'add') {
     $existing['quantity'] = max(0, (int) ($existing['quantity'] ?? 0)) + 1;
@@ -90,9 +111,18 @@ if ((int) ($existing['quantity'] ?? 0) > 0) {
     unset($bySurrogate[$key]);
 }
 
-$saved = tt_orders_save_draft($mysqli, $currentToken, $currentUsername, array_values($bySurrogate), trim((string) ($draft['order_name'] ?? '')));
+$saved = tt_orders_save_draft_for_owner(
+    $mysqli,
+    $currentToken,
+    $currentUsername,
+    $owner,
+    array_values($bySurrogate),
+    trim((string) ($draft['order_name'] ?? ''))
+);
+$draftOrders = tt_orders_list_drafts_for_customer($mysqli, $currentToken);
 
 echo json_encode([
-    'ok' => $saved !== null,
+    'ok' => true,
     'draft_order' => $saved,
+    'draft_orders' => $draftOrders,
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

@@ -1470,10 +1470,34 @@ function tapTrayCartFromDraftOrder(draftOrder) {
   return next;
 }
 
+function tapTrayCartFromDraftOrders(draftOrders) {
+  const next = {};
+  const rows = Array.isArray(draftOrders) ? draftOrders : [];
+  rows.forEach((draftOrder) => {
+    const draftCart = tapTrayCartFromDraftOrder(draftOrder);
+    Object.keys(draftCart).forEach((key) => {
+      next[key] = draftCart[key];
+    });
+  });
+  return next;
+}
+
 function applyTapTrayDraftOrder(draftOrder) {
   window.taptrayDraftOrder = draftOrder && typeof draftOrder === "object" ? draftOrder : null;
-  window.taptrayCart = tapTrayCartFromDraftOrder(window.taptrayDraftOrder);
+  window.taptrayDraftOrders = window.taptrayDraftOrder ? [window.taptrayDraftOrder] : [];
+  window.taptrayCart = tapTrayCartFromDraftOrders(window.taptrayDraftOrders);
   return window.taptrayCart;
+}
+
+function applyTapTrayDraftOrders(draftOrders) {
+  window.taptrayDraftOrders = Array.isArray(draftOrders) ? draftOrders.filter((entry) => entry && typeof entry === "object") : [];
+  window.taptrayDraftOrder = window.taptrayDraftOrders[0] || null;
+  window.taptrayCart = tapTrayCartFromDraftOrders(window.taptrayDraftOrders);
+  return window.taptrayCart;
+}
+
+function getTapTrayDraftOrders() {
+  return Array.isArray(window.taptrayDraftOrders) ? window.taptrayDraftOrders : [];
 }
 
 async function mutateTapTrayDraftOrder(action, item) {
@@ -1490,7 +1514,11 @@ async function mutateTapTrayDraftOrder(action, item) {
   if (!response.ok || !data || !data.ok) {
     throw new Error(data && data.error ? data.error : "TapTray could not update the order.");
   }
-  applyTapTrayDraftOrder(data.draft_order || null);
+  if (Array.isArray(data.draft_orders)) {
+    applyTapTrayDraftOrders(data.draft_orders);
+  } else {
+    applyTapTrayDraftOrder(data.draft_order || null);
+  }
   document.dispatchEvent(new CustomEvent("taptray:cart-updated", { detail: { cart: getTapTrayCart() } }));
   return data.draft_order || null;
 }
@@ -1519,6 +1547,19 @@ function getTapTrayPastOrders() {
 
 function getTapTrayActiveOrder() {
   return getTapTrayActiveOrders()[0] || null;
+}
+
+function getTapTrayOwnerKey(source) {
+  const ownerId = Number(source?.owner_id || 0);
+  if (ownerId > 0) return `o:${ownerId}`;
+  const username = String(source?.owner_username || "").trim();
+  if (username) return `u:${username.toLowerCase()}`;
+  const name = String(source?.owner_display_name || "").trim();
+  return name ? `n:${name.toLowerCase()}` : "n:taptray";
+}
+
+function getTapTrayOwnerLabel(source) {
+  return String(source?.owner_display_name || source?.owner_username || "TapTray").trim() || "TapTray";
 }
 
 function triggerTapTrayReadyAlert() {
@@ -1633,6 +1674,32 @@ function renderTapTrayOrderRow(item, options = {}) {
   `;
 }
 
+function renderTapTrayOrderGroup(group, options = {}) {
+  const label = String(group?.label || "TapTray").trim() || "TapTray";
+  const subtotal = Number(group?.subtotal || 0);
+  const subtotalText = subtotal > 0 ? `${Math.round(subtotal)}` : "";
+  const rows = Array.isArray(group?.rows) ? group.rows.join("") : "";
+  const payButton = options.showPay
+    ? `<button class="taptray-group-pay-btn" type="button" data-order-reference="${escapeHtml(String(group?.orderReference || "").trim())}">Pay this shop${subtotalText ? ` ${escapeHtml(subtotalText)}` : ""}</button>`
+    : "";
+  const metaText = String(group?.meta || "").trim();
+
+  return `
+    <section class="taptray-order-group">
+      <div class="taptray-order-group-head">
+        <div class="taptray-order-group-copy">
+          <div class="taptray-order-group-title">${escapeHtml(label)}</div>
+          ${metaText ? `<div class="taptray-order-group-meta">${escapeHtml(metaText)}</div>` : ""}
+        </div>
+        ${payButton}
+      </div>
+      <div class="taptray-order-group-items">
+        ${rows}
+      </div>
+    </section>
+  `;
+}
+
 function updateTapTrayOrderBar() {
   const bar = document.getElementById("taptrayOrderBar");
   const title = document.getElementById("taptrayOrderTitle");
@@ -1644,6 +1711,7 @@ function updateTapTrayOrderBar() {
   if (!bar || !title || !meta || !payBtn || !itemsHost || !toggleBtn || !chevron) return;
 
   const activeOrders = getTapTrayActiveOrders();
+  const draftOrders = getTapTrayDraftOrders();
   const pastOrders = getTapTrayPastOrders();
   const cart = getTapTrayCart();
   const cartEntries = Object.values(cart);
@@ -1655,6 +1723,10 @@ function updateTapTrayOrderBar() {
   const totalQty = activeEntries.reduce((sum, item) => sum + Number(item?.quantity || 0), 0)
     + cartEntries.reduce((sum, item) => sum + Number(item?.quantity || 0), 0);
   const totalPrice = cartEntries.reduce((sum, item) => sum + (parseTapTrayPriceValue(item?.price_label) * Number(item?.quantity || 0)), 0);
+  const uniqueMerchantCount = new Set([
+    ...draftOrders.map((order) => getTapTrayOwnerKey(order)),
+    ...activeOrders.map((order) => getTapTrayOwnerKey(order)),
+  ]).size;
   const wasHidden = bar.hidden;
   if (bar.dataset.expanded !== "0" && bar.dataset.expanded !== "1") {
     bar.dataset.expanded = "1";
@@ -1686,10 +1758,14 @@ function updateTapTrayOrderBar() {
     meta.textContent = `${getTapTrayOrderShortNumber(activeOrders[0])} · ${getTapTrayOrderDisplayName(activeOrders[0])}`;
   } else {
     title.textContent = "Order";
+    const groupText = uniqueMerchantCount > 1 ? `${uniqueMerchantCount} shops · ` : "";
     const statusText = activeEntries.length ? `${activeOrders.length} active order${activeOrders.length === 1 ? "" : "s"} · ` : "";
-    meta.textContent = `${statusText}${totalQty} item${totalQty === 1 ? "" : "s"}${priceText}`;
+    meta.textContent = `${groupText}${statusText}${totalQty} item${totalQty === 1 ? "" : "s"}${priceText}`;
   }
-  payBtn.disabled = cartEntries.length <= 0;
+  const singleDraftOrder = draftOrders.length === 1 ? draftOrders[0] : null;
+  payBtn.disabled = !singleDraftOrder;
+  payBtn.hidden = !singleDraftOrder;
+  payBtn.dataset.orderReference = singleDraftOrder ? String(singleDraftOrder.order_reference || "") : "";
   payBtn.textContent = "Pay";
   toggleBtn.setAttribute("aria-expanded", isExpanded ? "true" : "false");
   chevron.textContent = isExpanded ? "▾" : "▸";
@@ -1714,17 +1790,40 @@ function updateTapTrayOrderBar() {
       }).join("")}
     </details>
   ` : "";
+  const draftMarkup = draftOrders.map((draftOrder) => {
+    const draftItems = Array.isArray(draftOrder?.items) ? draftOrder.items : [];
+    const subtotal = draftItems.reduce((sum, item) => sum + (parseTapTrayPriceValue(item?.price_label) * Number(item?.quantity || 0)), 0);
+    return renderTapTrayOrderGroup({
+      label: getTapTrayOwnerLabel(draftOrder),
+      orderReference: String(draftOrder?.order_reference || "").trim(),
+      subtotal,
+      meta: `${draftItems.reduce((sum, item) => sum + Number(item?.quantity || 0), 0)} item${draftItems.reduce((sum, item) => sum + Number(item?.quantity || 0), 0) === 1 ? "" : "s"}`,
+      rows: draftItems.map((item) => renderTapTrayOrderRow(item, {
+        locked: false,
+        actionLabel: "Cancel",
+      })),
+    }, { showPay: true });
+  }).join("");
+  const activeMarkup = activeOrders.map((order) => {
+    const orderItems = Array.isArray(order?.items) ? order.items : [];
+    return renderTapTrayOrderGroup({
+      label: getTapTrayOwnerLabel(order),
+      meta: `${getTapTrayOrderShortNumber(order)} · ${getTapTrayOrderDisplayName(order)}`,
+      rows: orderItems.map((item) => renderTapTrayOrderRow({
+        ...item,
+        _taptrayOrderStatus: order.status || "in_process",
+        _taptrayOrderMeta: `${getTapTrayOrderShortNumber(order)} · ${getTapTrayOrderDisplayName(order)}`,
+      }, {
+        locked: true,
+        actionLabel: getTapTrayLockedLabel(order.status || "in_process"),
+        status: order.status || "making",
+        orderMeta: `${getTapTrayOrderShortNumber(order)} · ${getTapTrayOrderDisplayName(order)}`,
+      })),
+    }, { showPay: false });
+  }).join("");
   itemsHost.innerHTML = [
-    ...activeEntries.map((item) => renderTapTrayOrderRow(item, {
-      locked: true,
-      actionLabel: getTapTrayLockedLabel(item?._taptrayOrderStatus),
-      status: item?._taptrayOrderStatus || "making",
-      orderMeta: item?._taptrayOrderMeta || "",
-    })),
-    ...cartEntries.map((item) => renderTapTrayOrderRow(item, {
-      locked: false,
-      actionLabel: "Cancel",
-    })),
+    draftMarkup,
+    activeMarkup,
     pastMarkup,
   ].join("");
 }
@@ -1782,6 +1881,9 @@ window.taptraySelectItem = async function taptraySelectItem(button, surrogate, t
   const payload = {
     surrogate: Number(surrogate || 0),
     token: String(token || ""),
+    owner_id: Number(row?.closest(".group-item")?.dataset?.owner || 0),
+    owner_username: String(row?.closest(".group-item")?.dataset?.ownerUsername || window.currentOwner?.username || "").trim(),
+    owner_display_name: String(row?.closest(".group-item")?.dataset?.ownerDisplayName || window.currentOwner?.display_name || window.currentOwner?.username || "").trim(),
     title,
     price_label: priceLabel,
     short_description: shortDescription,
@@ -1828,6 +1930,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("taptray:cart-updated", () => updateTapTrayOrderBar());
   document.addEventListener("taptray:active-order-updated", (event) => {
     const draftOrder = event?.detail?.draftOrder && typeof event.detail.draftOrder === "object" ? event.detail.draftOrder : null;
+    const draftOrders = Array.isArray(event?.detail?.draftOrders) ? event.detail.draftOrders : [];
     const orders = Array.isArray(event?.detail?.orders) ? event.detail.orders : [];
     const pastOrders = Array.isArray(event?.detail?.pastOrders) ? event.detail.pastOrders : [];
     const order = event?.detail?.order && typeof event.detail.order === "object" ? event.detail.order : null;
@@ -1841,7 +1944,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     const hasNewReadyOrder = [...nextReadyRefs].some((ref) => !previousReadyRefs.has(ref));
     window.tapTrayReadyRefs = nextReadyRefs;
-    applyTapTrayDraftOrder(draftOrder);
+    applyTapTrayDraftOrders(draftOrders.length ? draftOrders : (draftOrder ? [draftOrder] : []));
     window.taptrayActiveOrders = orders;
     window.taptrayPastOrders = pastOrders;
     window.taptrayActiveOrder = order;
@@ -1866,14 +1969,25 @@ document.addEventListener("DOMContentLoaded", () => {
 document.addEventListener("click", (event) => {
   const payBtn = event.target.closest("#taptrayPayBtn");
   if (payBtn) {
-    const cart = getTapTrayCart();
-    if (!Object.keys(cart).length) {
+    const orderReference = String(payBtn.dataset.orderReference || "").trim();
+    if (!orderReference) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
     persistTapTrayCart();
-    window.location.href = "/checkout.php";
+    window.location.href = `/checkout.php?order_reference=${encodeURIComponent(orderReference)}`;
+    return;
+  }
+
+  const groupPayBtn = event.target.closest(".taptray-group-pay-btn");
+  if (groupPayBtn) {
+    const orderReference = String(groupPayBtn.dataset.orderReference || "").trim();
+    if (!orderReference) return;
+    event.preventDefault();
+    event.stopPropagation();
+    persistTapTrayCart();
+    window.location.href = `/checkout.php?order_reference=${encodeURIComponent(orderReference)}`;
     return;
   }
 
@@ -5441,6 +5555,7 @@ window.renderList = function renderList(list, level = 0, section = "owned") {
   node.dataset.group = listToken;
   node.dataset.owner = ownerId;
   node.dataset.ownerUsername = list.owner_username || window.currentOwner?.username || window.currentProfileUsername || "";
+  node.dataset.ownerDisplayName = list.owner_display_name || list.owner_username || "";
   node.dataset.section = section;           
   node.dataset.roleRank = roleRank; // 🟢 stamp role rank for generateListMenu
   node.dataset.access = list.access; // ✅ add this

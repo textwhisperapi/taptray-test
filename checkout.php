@@ -450,8 +450,8 @@ $ttMerchantConfig = [
           </button>
         </div>
         <div class="checkout-card-head">
-          <div class="checkout-kicker">Your order</div>
-          <h1>Review before payment</h1>
+          <div class="checkout-kicker">Shop</div>
+          <h1 id="checkoutOrderHeading">Selected shop</h1>
         </div>
         <div class="checkout-order-name">
           <label for="checkoutOrderName">Order name</label>
@@ -474,7 +474,7 @@ $ttMerchantConfig = [
               <div id="checkoutPrimaryNote" class="checkout-primary-note">Checking for your phone wallet…</div>
               <button class="wallet-btn apple" type="button" id="checkoutTestApplePayBtn"><?= htmlspecialchars($paymentProvider === 'rapyd' ? 'Open Hosted Wallet Test' : 'Test Apple Pay Route', ENT_QUOTES, 'UTF-8') ?></button>
               <div class="checkout-links">
-                <a href="/taptray_worldline_success.php?test=1" id="checkoutViewSuccessBtn" class="checkout-test-link">View post-purchase screen</a>
+                <a href="/taptray_payment_success.php?test=1" id="checkoutViewSuccessBtn" class="checkout-test-link">View post-purchase screen</a>
                 <a href="<?= htmlspecialchars($paymentProvider === 'rapyd' ? '/test_rapyd_api.php' : '/taptray_payment_diagnostics.php', ENT_QUOTES, 'UTF-8') ?>" class="checkout-test-link"><?= htmlspecialchars($paymentProvider === 'rapyd' ? 'Open Rapyd sandbox test' : 'Open payment diagnostics', ENT_QUOTES, 'UTF-8') ?></a>
               </div>
               <div id="checkoutDebug" class="checkout-debug">Wallet detection info will appear here when you press pay.</div>
@@ -504,8 +504,20 @@ $ttMerchantConfig = [
       return String(window.tapTrayCheckoutDraftOrder?.order_reference || "").trim();
     }
 
+    function getRequestedCheckoutOrderReference() {
+      try {
+        return String(new URLSearchParams(window.location.search || "").get("order_reference") || "").trim();
+      } catch {
+        return "";
+      }
+    }
+
     async function loadTapTrayCheckoutDraftOrder() {
-      const response = await fetch("/taptray_order_status.php", {
+      const requestedOrderReference = getRequestedCheckoutOrderReference();
+      const statusUrl = requestedOrderReference
+        ? `/taptray_order_status.php?order_reference=${encodeURIComponent(requestedOrderReference)}`
+        : "/taptray_order_status.php";
+      const response = await fetch(statusUrl, {
         credentials: "same-origin",
         headers: { Accept: "application/json" }
       });
@@ -608,6 +620,15 @@ $ttMerchantConfig = [
       return Object.values(cart);
     }
 
+    function getCheckoutOwnerLabel() {
+      const draftOrder = window.tapTrayCheckoutDraftOrder;
+      const fromItems = String(draftOrder?.items?.[0]?.owner_display_name || "").trim();
+      if (fromItems) return fromItems;
+      const fromOrder = String(draftOrder?.owner_username || "").trim();
+      if (fromOrder) return fromOrder;
+      return "Selected shop";
+    }
+
     function getCheckoutTotals(entries) {
       const totalQty = entries.reduce((sum, item) => sum + Number(item?.quantity || 0), 0);
       const totalPrice = entries.reduce((sum, item) => sum + parsePrice(item?.price_label) * Number(item?.quantity || 0), 0);
@@ -620,11 +641,16 @@ $ttMerchantConfig = [
     function renderCheckout() {
       const entries = getCheckoutEntries();
       const host = document.getElementById("checkoutItems");
+      const headingEl = document.getElementById("checkoutOrderHeading");
       const qtyEl = document.getElementById("checkoutQty");
       const subtotalEl = document.getElementById("checkoutSubtotal");
       const totalEl = document.getElementById("checkoutTotal");
       const amountValueEl = document.getElementById("checkoutAmountValue");
       const totals = getCheckoutTotals(entries);
+
+      if (headingEl) {
+        headingEl.textContent = getCheckoutOwnerLabel();
+      }
 
       qtyEl.textContent = String(totals.totalQty);
       subtotalEl.textContent = String(totals.totalPrice);
@@ -1006,7 +1032,7 @@ $ttMerchantConfig = [
       const payload = {
         reference: `preview_${Date.now()}`,
         order_name: getCheckoutOrderName(),
-        merchant_name: TAPTRAY_PAYMENT_CONTEXT.merchantName,
+        owner_display_name: getCheckoutOwnerLabel(),
         currency: TAPTRAY_PAYMENT_CONTEXT.merchantCurrency,
         totals: {
           quantity: totals.totalQty,
@@ -1017,7 +1043,7 @@ $ttMerchantConfig = [
         },
         items: entries
       };
-      return `/taptray_worldline_success.php?test=1&payload=${encodeURIComponent(JSON.stringify(payload))}`;
+      return `/taptray_payment_success.php?test=1&payload=${encodeURIComponent(JSON.stringify(payload))}`;
     }
 
     async function startWalletPayment() {
@@ -1108,7 +1134,7 @@ $ttMerchantConfig = [
         ].join("\n");
       }
 
-      window.location.href = data.success_url || "/taptray_worldline_success.php";
+      window.location.href = data.success_url || "/taptray_payment_success.php";
     }
 
     async function startRapydGooglePayment(walletInfo, entries) {
@@ -1166,7 +1192,7 @@ $ttMerchantConfig = [
         ].join("\n");
       }
 
-      window.location.href = data.redirect_url || data.success_url || "/taptray_worldline_success.php";
+      window.location.href = data.redirect_url || data.success_url || "/taptray_payment_success.php";
     }
 
     async function startApplePayHostedCheckoutTest() {

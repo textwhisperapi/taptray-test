@@ -10,7 +10,10 @@ if (!login_check($mysqli) || empty($_SESSION['username'])) {
     exit;
 }
 
-$orders = tt_orders_list_open($mysqli);
+$sessionUsername = trim((string) $_SESSION['username']);
+$requestedOwner = trim((string) ($_GET['owner'] ?? $sessionUsername));
+$orders = [];
+$requestedOwnerLabel = '';
 
 function tt_menu_orders_status_label(string $status): string {
     return match ($status) {
@@ -45,7 +48,7 @@ function tt_menu_orders_display_name(array $order): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TapTray Orders</title>
+  <title>TapTray Orders · <?= htmlspecialchars($requestedOwnerLabel, ENT_QUOTES) ?></title>
   <style>
     :root {
       --bg: #eef2f7;
@@ -236,6 +239,7 @@ function tt_menu_orders_item_rows(array $order): string {
     <div class="top">
       <div>
         <div class="brand">TapTray Kitchen</div>
+        <div id="kitchenOwnerLabel" class="brand" style="margin-top:4px; letter-spacing:.03em; text-transform:none; font-size:16px;"><?= htmlspecialchars($requestedOwnerLabel, ENT_QUOTES) ?></div>
         <h1>Menu Orders</h1>
       </div>
       <div class="top-actions">
@@ -359,6 +363,21 @@ function tt_menu_orders_item_rows(array $order): string {
     function resolveRestaurantLabel(card) {
       const parentWin = window.parent && window.parent !== window ? window.parent : null;
       return String(parentWin?.currentOwner?.display_name || "").trim();
+    }
+
+    function resolveOwnerDisplayName() {
+      const parentWin = window.parent && window.parent !== window ? window.parent : null;
+      const fromParent = String(parentWin?.currentOwner?.display_name || parentWin?.currentOwner?.username || "").trim();
+      if (fromParent) return fromParent;
+      const params = new URLSearchParams(window.location.search);
+      return String(params.get("owner") || "").trim();
+    }
+
+    function resolveOwnerUsername() {
+      const parentWin = window.parent && window.parent !== window ? window.parent : null;
+      const fromParent = String(parentWin?.currentOwner?.username || "").trim();
+      if (fromParent) return fromParent;
+      return "";
     }
 
     function renderStateButtons(status) {
@@ -614,10 +633,16 @@ function tt_menu_orders_item_rows(array $order): string {
     }
 
     async function refreshOrders() {
-      const query = showPastOrders ? "?include_past=1&past_limit=8" : "";
-      const response = await fetch(`/menu_orders_data.php${query}`, {
+      const ownerUsername = resolveOwnerUsername();
+      const response = await fetch(`/menu_orders_data.php`, {
+        method: "POST",
         credentials: "same-origin",
-        headers: { "Accept": "application/json" }
+        headers: { "Accept": "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({
+          owner: ownerUsername,
+          include_past: showPastOrders,
+          past_limit: 8
+        })
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || !data || !data.ok) {
@@ -638,6 +663,14 @@ function tt_menu_orders_item_rows(array $order): string {
     }
 
     bindOrderActions(ordersRoot);
+    const kitchenOwnerLabel = document.getElementById("kitchenOwnerLabel");
+    if (kitchenOwnerLabel) {
+      const ownerLabel = resolveOwnerDisplayName();
+      if (ownerLabel) {
+        kitchenOwnerLabel.textContent = ownerLabel;
+        document.title = `TapTray Orders · ${ownerLabel}`;
+      }
+    }
     togglePastOrdersButton.addEventListener("click", async () => {
       showPastOrders = !showPastOrders;
       togglePastOrdersButton.textContent = showPastOrders ? "Hide past orders" : "Show past orders";
@@ -655,6 +688,7 @@ function tt_menu_orders_item_rows(array $order): string {
         closeRecipePanel();
       }
     });
+    refreshOrders();
     window.setInterval(refreshOrders, 5000);
   </script>
 </body>

@@ -258,7 +258,7 @@ function wl_log_event(string $channel, array $payload): void {
     );
 }
 
-function wl_api_request(string $method, string $path, array $query = [], ?array $body = null): array {
+function wl_api_request(string $method, string $path, array $query = [], ?array $body = null, string $idempotenceKey = ''): array {
     $url = rtrim(WL_ENDPOINT, '/') . '/' . ltrim($path, '/');
     if ($query) {
         $url .= '?' . http_build_query($query);
@@ -268,9 +268,13 @@ function wl_api_request(string $method, string $path, array $query = [], ?array 
     // Worldline expects an RFC1123-style HTTP date for signing.
     $dateHeader = gmdate('D, d M Y H:i:s') . ' GMT';
     $serverMetaInfo = wl_server_meta_info_value();
-    $canonicalizedHeaders = wl_build_canonicalized_headers([
+    $headersForSignature = [
         'X-GCS-ServerMetaInfo' => $serverMetaInfo,
-    ]);
+    ];
+    if (trim($idempotenceKey) !== '') {
+        $headersForSignature['X-GCS-Idempotence-Key'] = trim($idempotenceKey);
+    }
+    $canonicalizedHeaders = wl_build_canonicalized_headers($headersForSignature);
     $canonicalResource = wl_build_canonical_resource($path, $query);
     $signature = wl_build_signature($method, $contentType, $dateHeader, $canonicalizedHeaders, $canonicalResource);
 
@@ -280,6 +284,9 @@ function wl_api_request(string $method, string $path, array $query = [], ?array 
         'X-GCS-ServerMetaInfo: ' . $serverMetaInfo,
         'Authorization: GCS v1HMAC:' . WL_API_KEY_ID . ':' . $signature,
     ];
+    if (trim($idempotenceKey) !== '') {
+        $headers[] = 'X-GCS-Idempotence-Key: ' . trim($idempotenceKey);
+    }
     if ($contentType !== '') {
         $headers[] = 'Content-Type: ' . $contentType;
     }
@@ -352,12 +359,13 @@ function wl_get_payment_product_320(string $countryCode, string $currencyCode, i
     return $response['body'];
 }
 
-function wl_create_payment(array $payload): array {
+function wl_create_payment(array $payload, string $idempotenceKey = ''): array {
     $response = wl_api_request(
         'POST',
         '/v2/' . rawurlencode(WL_MERCHANT_ID) . '/payments',
         [],
-        $payload
+        $payload,
+        $idempotenceKey
     );
 
     if ($response['status'] < 200 || $response['status'] >= 300 || !is_array($response['body'])) {

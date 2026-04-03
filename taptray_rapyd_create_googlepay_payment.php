@@ -97,7 +97,6 @@ if ($cardNetwork === '') {
 }
 
 $currency = defined('TT_MERCHANT_CURRENCY') ? (string) TT_MERCHANT_CURRENCY : 'EUR';
-$merchantName = defined('TT_MERCHANT_NAME') ? (string) TT_MERCHANT_NAME : 'TapTray';
 $merchantCountry = defined('TT_MERCHANT_COUNTRY') ? (string) TT_MERCHANT_COUNTRY : 'IS';
 $destinationWallet = trim(tt_env_value('TT_RAPYD_EWALLET', ''));
 $walletInfo = is_array($payload['wallet'] ?? null) ? $payload['wallet'] : [];
@@ -106,11 +105,21 @@ $requestedOrderReference = trim((string) ($payload['order_reference'] ?? ''));
 $customerToken = tt_orders_customer_token();
 $customerUsername = isset($_SESSION['username']) ? trim((string) $_SESSION['username']) : '';
 $draftOrder = tt_orders_get_customer_checkout_order($mysqli, $customerToken, $requestedOrderReference);
+$ownerId = (int) ($draftOrder['owner_id'] ?? 0);
+$ownerUsername = trim((string) ($draftOrder['owner_username'] ?? ''));
+$ownerDisplayName = trim((string) ($draftOrder['items'][0]['owner_display_name'] ?? ''));
+if ($ownerDisplayName === '') {
+    $ownerDisplayName = $ownerUsername !== '' ? $ownerUsername : (defined('TT_MERCHANT_NAME') ? (string) TT_MERCHANT_NAME : 'TapTray');
+}
 $cart = $payload['cart'] ?? null;
 if ($draftOrder) {
     $cart = is_array($draftOrder['items'] ?? null) ? $draftOrder['items'] : [];
     if ($orderName !== '') {
-        $draftOrder = tt_orders_save_draft($mysqli, $customerToken, $customerUsername, $cart, $orderName) ?? $draftOrder;
+        $draftOrder = tt_orders_save_draft_for_owner($mysqli, $customerToken, $customerUsername, [
+            'id' => $ownerId,
+            'username' => $ownerUsername,
+            'display_name' => $ownerDisplayName,
+        ], $cart, $orderName) ?? $draftOrder;
     }
 } elseif (!is_array($cart) || !$cart) {
     tt_rapyd_payment_error('No TapTray order items were provided.');
@@ -170,13 +179,25 @@ $orderReference = trim((string) ($draftOrder['order_reference'] ?? ''));
 if ($orderReference === '') {
     $orderReference = tt_orders_generate_reference('ttrpay_');
 }
-$returnUrl = rapyd_origin_url() . '/taptray_worldline_success.php?order=' . rawurlencode($orderReference);
+$existingOrder = tt_orders_get_existing_processed($mysqli, $orderReference);
+if ($existingOrder) {
+    echo json_encode([
+        'ok' => true,
+        'already_processed' => true,
+        'success_url' => '/taptray_payment_success.php?order=' . rawurlencode($orderReference),
+        'order_reference' => $orderReference,
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+$returnUrl = rapyd_origin_url() . '/taptray_payment_success.php?order=' . rawurlencode($orderReference);
 
 $completedOrder = [
     'reference' => $orderReference,
     'order_name' => $orderName,
     'created_at' => gmdate('c'),
-    'merchant_name' => $merchantName,
+    'owner_id' => $ownerId,
+    'owner_username' => $ownerUsername,
+    'owner_display_name' => $ownerDisplayName,
     'merchant_country' => $merchantCountry,
     'currency' => $currency,
     'wallet' => [
@@ -226,7 +247,7 @@ if ($destinationWallet !== '') {
     $requestBody['ewallet'] = $destinationWallet;
 }
 
-$response = rapyd_request('post', '/v1/payments', $requestBody);
+$response = rapyd_request('post', '/v1/payments', $requestBody, [], 'taptray_rapyd_payment_' . $orderReference);
 $data = is_array($response['response']['data'] ?? null) ? $response['response']['data'] : [];
 $status = (string) ($data['status'] ?? '');
 $paymentId = (string) ($data['id'] ?? '');

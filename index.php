@@ -40,7 +40,7 @@ sec_session_start();
 $listOwnerUsername = $_SESSION['username'] ?? '';
 
 //Version is now se globally in service-worker.php
-$version = 'v180';
+$version = 'v182';
 
 
 header('Content-Type: text/html; charset=utf-8');
@@ -1346,16 +1346,18 @@ if (!$vapidKey) {
         });
         const data = await response.json().catch(() => null);
         const draftOrder = data && data.draft_order ? data.draft_order : null;
+        const draftOrders = Array.isArray(data && data.draft_orders) ? data.draft_orders : [];
         const orders = Array.isArray(data && data.orders) ? data.orders : [];
         const pastOrders = Array.isArray(data && data.past_orders) ? data.past_orders : [];
         const order = data && data.order ? data.order : null;
         window.taptrayDraftOrder = draftOrder;
+        window.taptrayDraftOrders = draftOrders;
         window.taptrayActiveOrders = orders;
         window.taptrayPastOrders = pastOrders;
         window.taptrayActiveOrder = order;
         ensureTapTrayPushSubscriptionForOrders(orders);
         document.dispatchEvent(new CustomEvent("taptray:active-order-updated", {
-          detail: { order, orders, pastOrders, draftOrder }
+          detail: { order, orders, pastOrders, draftOrder, draftOrders }
         }));
       } catch (err) {
         console.warn("TapTray active order refresh failed", err);

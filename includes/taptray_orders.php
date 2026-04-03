@@ -22,7 +22,8 @@ function tt_orders_ensure_schema(mysqli $mysqli): void {
             order_name VARCHAR(191) DEFAULT NULL,
             customer_token VARCHAR(64) NOT NULL,
             customer_username VARCHAR(191) DEFAULT NULL,
-            merchant_name VARCHAR(191) NOT NULL DEFAULT 'TapTray',
+            owner_id BIGINT UNSIGNED DEFAULT NULL,
+            owner_username VARCHAR(100) DEFAULT NULL,
             currency CHAR(3) NOT NULL DEFAULT 'EUR',
             amount_minor INT NOT NULL DEFAULT 0,
             total_quantity INT NOT NULL DEFAULT 0,
@@ -37,6 +38,7 @@ function tt_orders_ensure_schema(mysqli $mysqli): void {
             closed_at DATETIME DEFAULT NULL,
             UNIQUE KEY uniq_taptray_order_reference (order_reference),
             KEY idx_taptray_customer_status (customer_token, status),
+            KEY idx_taptray_customer_owner_status (customer_token, owner_username, status),
             KEY idx_taptray_status_created (status, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
@@ -80,10 +82,15 @@ function tt_orders_customer_token(): string {
 }
 
 function tt_orders_normalize_order(array $order): array {
+    $owner = is_array($order['owner'] ?? null) ? $order['owner'] : [];
+    $ownerId = (int) ($order['owner_id'] ?? $owner['id'] ?? $owner['member_id'] ?? 0);
+    $ownerUsername = trim((string) ($order['owner_username'] ?? $owner['username'] ?? ''));
+
     return [
         'reference' => trim((string) ($order['reference'] ?? '')),
         'order_name' => trim((string) ($order['order_name'] ?? '')),
-        'merchant_name' => trim((string) ($order['merchant_name'] ?? 'TapTray')) ?: 'TapTray',
+        'owner_id' => $ownerId > 0 ? $ownerId : null,
+        'owner_username' => $ownerUsername,
         'currency' => strtoupper(trim((string) ($order['currency'] ?? 'EUR'))) ?: 'EUR',
         'amount_minor' => (int) ($order['totals']['amount_minor'] ?? 0),
         'quantity' => (int) ($order['totals']['quantity'] ?? 0),
@@ -91,6 +98,18 @@ function tt_orders_normalize_order(array $order): array {
         'items_json' => json_encode(is_array($order['items'] ?? null) ? $order['items'] : [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         'worldline_payment_id' => trim((string) ($order['worldline']['payment_id'] ?? '')),
         'worldline_checkout_id' => trim((string) ($order['worldline']['hosted_checkout_id'] ?? '')),
+    ];
+}
+
+function tt_orders_normalize_owner(array $owner): array {
+    $id = (int) ($owner['id'] ?? $owner['member_id'] ?? 0);
+    $username = trim((string) ($owner['username'] ?? ''));
+    $displayName = trim((string) ($owner['display_name'] ?? $owner['name'] ?? $username));
+
+    return [
+        'id' => $id > 0 ? $id : 0,
+        'username' => $username,
+        'display_name' => $displayName !== '' ? $displayName : $username,
     ];
 }
 
@@ -148,6 +167,78 @@ function tt_orders_get_draft_for_customer(mysqli $mysqli, string $customerToken)
     return $row;
 }
 
+function tt_orders_get_draft_for_customer_owner(mysqli $mysqli, string $customerToken, array $owner): ?array {
+    tt_orders_ensure_schema($mysqli);
+    $owner = tt_orders_normalize_owner($owner);
+
+    if ($owner['id'] > 0) {
+        $stmt = $mysqli->prepare("
+            SELECT *
+            FROM taptray_orders
+            WHERE customer_token = ?
+              AND owner_id = ?
+              AND status = 'draft'
+            ORDER BY updated_at DESC, created_at DESC
+            LIMIT 1
+        ");
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param('si', $customerToken, $owner['id']);
+    } elseif ($owner['username'] !== '') {
+        $stmt = $mysqli->prepare("
+            SELECT *
+            FROM taptray_orders
+            WHERE customer_token = ?
+              AND owner_username = ?
+              AND status = 'draft'
+            ORDER BY updated_at DESC, created_at DESC
+            LIMIT 1
+        ");
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param('ss', $customerToken, $owner['username']);
+    } else {
+        return tt_orders_get_draft_for_customer($mysqli, $customerToken);
+    }
+
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc() ?: null;
+    $stmt->close();
+    if (!$row) {
+        return null;
+    }
+    $row['items'] = json_decode((string) ($row['items_json'] ?? '[]'), true) ?: [];
+    $row['items'] = tt_orders_attach_recipe_texts($mysqli, $row['items']);
+    return $row;
+}
+
+function tt_orders_list_drafts_for_customer(mysqli $mysqli, string $customerToken): array {
+    tt_orders_ensure_schema($mysqli);
+    $stmt = $mysqli->prepare("
+        SELECT *
+        FROM taptray_orders
+        WHERE customer_token = ?
+          AND status = 'draft'
+        ORDER BY updated_at DESC, created_at DESC
+    ");
+    if (!$stmt) {
+        return [];
+    }
+    $stmt->bind_param('s', $customerToken);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $stmt->close();
+    $rows = [];
+    while ($row = $result->fetch_assoc()) {
+        $row['items'] = json_decode((string) ($row['items_json'] ?? '[]'), true) ?: [];
+        $row['items'] = tt_orders_attach_recipe_texts($mysqli, $row['items']);
+        $rows[] = $row;
+    }
+    return $rows;
+}
+
 function tt_orders_get_customer_checkout_order(mysqli $mysqli, string $customerToken, string $orderReference = ''): ?array {
     $orderReference = trim($orderReference);
     if ($orderReference !== '') {
@@ -160,14 +251,32 @@ function tt_orders_get_customer_checkout_order(mysqli $mysqli, string $customerT
 }
 
 function tt_orders_save_draft(mysqli $mysqli, string $customerToken, string $customerUsername, array $items, string $orderName = ''): ?array {
+    return tt_orders_save_draft_for_owner($mysqli, $customerToken, $customerUsername, [], $items, $orderName);
+}
+
+function tt_orders_save_draft_for_owner(mysqli $mysqli, string $customerToken, string $customerUsername, array $owner, array $items, string $orderName = ''): ?array {
     tt_orders_ensure_schema($mysqli);
-    $draft = tt_orders_get_draft_for_customer($mysqli, $customerToken);
+    $owner = tt_orders_normalize_owner($owner);
+    $draft = tt_orders_get_draft_for_customer_owner($mysqli, $customerToken, $owner);
+    $totals = tt_orders_calculate_totals($items);
+    if ($totals['quantity'] < 1) {
+        $existingReference = trim((string) ($draft['order_reference'] ?? ''));
+        if ($existingReference !== '') {
+            $stmt = $mysqli->prepare("DELETE FROM taptray_orders WHERE order_reference = ? AND status = 'draft' LIMIT 1");
+            if ($stmt) {
+                $stmt->bind_param('s', $existingReference);
+                $stmt->execute();
+                $stmt->close();
+            }
+        }
+        return null;
+    }
+
     $reference = trim((string) ($draft['order_reference'] ?? ''));
     if ($reference === '') {
         $reference = tt_orders_generate_reference('ttdraft_');
     }
-    $totals = tt_orders_calculate_totals($items);
-    $merchantName = defined('TT_MERCHANT_NAME') ? (string) TT_MERCHANT_NAME : 'TapTray';
+
     $currency = defined('TT_MERCHANT_CURRENCY') ? (string) TT_MERCHANT_CURRENCY : 'EUR';
     $walletPath = 'Phone wallet';
     $itemsJson = json_encode(array_values($items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -175,15 +284,19 @@ function tt_orders_save_draft(mysqli $mysqli, string $customerToken, string $cus
         return null;
     }
 
+    $ownerId = $owner['id'] > 0 ? $owner['id'] : null;
+    $ownerUsername = $owner['username'] !== '' ? $owner['username'] : null;
+
     $stmt = $mysqli->prepare("
         INSERT INTO taptray_orders
-            (order_reference, order_name, customer_token, customer_username, merchant_name, currency, amount_minor, total_quantity, wallet_path, status, items_json)
-        VALUES (?, NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, ?, ?, ?, 'draft', ?)
+            (order_reference, order_name, customer_token, customer_username, owner_id, owner_username, currency, amount_minor, total_quantity, wallet_path, status, items_json)
+        VALUES (?, NULLIF(?, ''), ?, NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, ?, ?, 'draft', ?)
         ON DUPLICATE KEY UPDATE
             order_name = COALESCE(NULLIF(VALUES(order_name), ''), order_name),
             customer_token = VALUES(customer_token),
             customer_username = VALUES(customer_username),
-            merchant_name = VALUES(merchant_name),
+            owner_id = VALUES(owner_id),
+            owner_username = VALUES(owner_username),
             currency = VALUES(currency),
             amount_minor = VALUES(amount_minor),
             total_quantity = VALUES(total_quantity),
@@ -195,12 +308,13 @@ function tt_orders_save_draft(mysqli $mysqli, string $customerToken, string $cus
         return null;
     }
     $stmt->bind_param(
-        'ssssssiiss',
+        'ssssissiiss',
         $reference,
         $orderName,
         $customerToken,
         $customerUsername,
-        $merchantName,
+        $ownerId,
+        $ownerUsername,
         $currency,
         $totals['amount_minor'],
         $totals['quantity'],
@@ -225,13 +339,14 @@ function tt_orders_upsert_paid_order(mysqli $mysqli, array $order): ?array {
 
     $stmt = $mysqli->prepare("
         INSERT INTO taptray_orders
-            (order_reference, order_name, customer_token, customer_username, merchant_name, currency, amount_minor, total_quantity, wallet_path, status, items_json, worldline_payment_id, worldline_checkout_id)
-        VALUES (?, NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, ?, ?, ?, 'queued', ?, NULLIF(?, ''), NULLIF(?, ''))
+            (order_reference, order_name, customer_token, customer_username, owner_id, owner_username, currency, amount_minor, total_quantity, wallet_path, status, items_json, worldline_payment_id, worldline_checkout_id)
+        VALUES (?, NULLIF(?, ''), ?, NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, ?, ?, 'queued', ?, NULLIF(?, ''), NULLIF(?, ''))
         ON DUPLICATE KEY UPDATE
             order_name = COALESCE(NULLIF(VALUES(order_name), ''), order_name),
             customer_token = VALUES(customer_token),
             customer_username = VALUES(customer_username),
-            merchant_name = VALUES(merchant_name),
+            owner_id = COALESCE(VALUES(owner_id), owner_id),
+            owner_username = COALESCE(NULLIF(VALUES(owner_username), ''), owner_username),
             currency = VALUES(currency),
             amount_minor = VALUES(amount_minor),
             total_quantity = VALUES(total_quantity),
@@ -245,12 +360,13 @@ function tt_orders_upsert_paid_order(mysqli $mysqli, array $order): ?array {
         return null;
     }
     $stmt->bind_param(
-        'ssssiissssss',
+        'ssssissiissss',
         $normalized['reference'],
         $normalized['order_name'],
         $customerToken,
         $customerUsername,
-        $normalized['merchant_name'],
+        $normalized['owner_id'],
+        $normalized['owner_username'],
         $normalized['currency'],
         $normalized['amount_minor'],
         $normalized['quantity'],
@@ -280,6 +396,22 @@ function tt_orders_get_by_reference(mysqli $mysqli, string $orderReference): ?ar
     }
     $row['items'] = json_decode((string) ($row['items_json'] ?? '[]'), true) ?: [];
     $row['items'] = tt_orders_attach_recipe_texts($mysqli, $row['items']);
+    return $row;
+}
+
+function tt_orders_get_existing_processed(mysqli $mysqli, string $orderReference): ?array {
+    $orderReference = trim($orderReference);
+    if ($orderReference === '') {
+        return null;
+    }
+    $row = tt_orders_get_by_reference($mysqli, $orderReference);
+    if (!$row) {
+        return null;
+    }
+    $status = trim((string) ($row['status'] ?? ''));
+    if ($status === '' || $status === 'draft') {
+        return null;
+    }
     return $row;
 }
 
@@ -358,6 +490,35 @@ function tt_orders_list_open(mysqli $mysqli): array {
     return $rows;
 }
 
+function tt_orders_list_open_for_owner(mysqli $mysqli, string $ownerUsername): array {
+    tt_orders_ensure_schema($mysqli);
+    $ownerUsername = trim($ownerUsername);
+    if ($ownerUsername === '') {
+        return [];
+    }
+    $stmt = $mysqli->prepare("
+        SELECT *
+        FROM taptray_orders
+        WHERE owner_username = ?
+          AND status IN ('queued', 'in_process', 'making', 'ready')
+        ORDER BY created_at ASC
+    ");
+    if (!$stmt) {
+        return [];
+    }
+    $stmt->bind_param('s', $ownerUsername);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $stmt->close();
+    $rows = [];
+    while ($row = $result->fetch_assoc()) {
+        $row['items'] = json_decode((string) ($row['items_json'] ?? '[]'), true) ?: [];
+        $row['items'] = tt_orders_attach_recipe_texts($mysqli, $row['items']);
+        $rows[] = $row;
+    }
+    return $rows;
+}
+
 function tt_orders_list_recent_closed(mysqli $mysqli, int $limit = 10): array {
     tt_orders_ensure_schema($mysqli);
     $limit = max(1, min(50, $limit));
@@ -371,6 +532,37 @@ function tt_orders_list_recent_closed(mysqli $mysqli, int $limit = 10): array {
     if (!$result) {
         return [];
     }
+    $rows = [];
+    while ($row = $result->fetch_assoc()) {
+        $row['items'] = json_decode((string) ($row['items_json'] ?? '[]'), true) ?: [];
+        $row['items'] = tt_orders_attach_recipe_texts($mysqli, $row['items']);
+        $rows[] = $row;
+    }
+    return $rows;
+}
+
+function tt_orders_list_recent_closed_for_owner(mysqli $mysqli, string $ownerUsername, int $limit = 10): array {
+    tt_orders_ensure_schema($mysqli);
+    $ownerUsername = trim($ownerUsername);
+    if ($ownerUsername === '') {
+        return [];
+    }
+    $limit = max(1, min(50, $limit));
+    $stmt = $mysqli->prepare("
+        SELECT *
+        FROM taptray_orders
+        WHERE owner_username = ?
+          AND status = 'closed'
+        ORDER BY COALESCE(closed_at, updated_at, created_at) DESC
+        LIMIT {$limit}
+    ");
+    if (!$stmt) {
+        return [];
+    }
+    $stmt->bind_param('s', $ownerUsername);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $stmt->close();
     $rows = [];
     while ($row = $result->fetch_assoc()) {
         $row['items'] = json_decode((string) ($row['items_json'] ?? '[]'), true) ?: [];

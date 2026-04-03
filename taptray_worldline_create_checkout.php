@@ -129,14 +129,23 @@ $origin = tt_current_origin();
 if ($origin === '') {
     tt_checkout_error('Could not determine TapTray origin URL.', 500);
 }
-$returnUrl = $origin . '/taptray_worldline_success.php?order=' . rawurlencode($orderReference);
+$returnUrl = $origin . '/taptray_payment_success.php?order=' . rawurlencode($orderReference);
 $currency = defined('TT_MERCHANT_CURRENCY') ? (string) TT_MERCHANT_CURRENCY : 'ISK';
-$merchantName = defined('TT_MERCHANT_NAME') ? (string) TT_MERCHANT_NAME : 'TapTray';
+$ownerId = (int) ($draftOrder['owner_id'] ?? 0);
+$ownerUsername = trim((string) ($draftOrder['owner_username'] ?? ''));
+$ownerDisplayName = trim((string) ($draftOrder['items'][0]['owner_display_name'] ?? ''));
+if ($ownerDisplayName === '') {
+    $ownerDisplayName = $ownerUsername !== '' ? $ownerUsername : (defined('TT_MERCHANT_NAME') ? (string) TT_MERCHANT_NAME : 'TapTray');
+}
 $merchantCountry = defined('TT_MERCHANT_COUNTRY') ? (string) TT_MERCHANT_COUNTRY : 'IS';
 $wallet = is_array($payload['wallet'] ?? null) ? $payload['wallet'] : [];
 $orderName = trim((string) ($payload['order_name'] ?? ''));
 if ($draftOrder && $orderName !== '') {
-    $draftOrder = tt_orders_save_draft($mysqli, $customerToken, $customerUsername, $cart, $orderName) ?? $draftOrder;
+    $draftOrder = tt_orders_save_draft_for_owner($mysqli, $customerToken, $customerUsername, [
+        'id' => $ownerId,
+        'username' => $ownerUsername,
+        'display_name' => $ownerDisplayName,
+    ], $cart, $orderName) ?? $draftOrder;
 }
 
 if (!defined('WL_SDK_AVAILABLE') || !WL_SDK_AVAILABLE) {
@@ -166,7 +175,9 @@ $_SESSION['taptray_pending_order'] = [
     'reference' => $orderReference,
     'order_name' => $orderName,
     'created_at' => gmdate('c'),
-    'merchant_name' => $merchantName,
+    'owner_id' => $ownerId,
+    'owner_username' => $ownerUsername,
+    'owner_display_name' => $ownerDisplayName,
     'merchant_country' => $merchantCountry,
     'currency' => $currency,
     'wallet' => [
@@ -209,7 +220,7 @@ try {
         'redirect_url' => $redirectUrl,
         'order_reference' => $orderReference,
         'hosted_checkout_id' => (string) ($response->hostedCheckoutId ?? ''),
-        'merchant' => $merchantName,
+        'merchant' => $ownerDisplayName,
         'currency' => $currency,
         'amount_minor' => $totalMinor,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

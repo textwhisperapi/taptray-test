@@ -32,7 +32,7 @@ if ($pendingOrder === null && ($testPayloadRaw !== '' || isset($_GET['test']))) 
     } else {
         $pendingOrder = [
             'reference' => $orderReference !== '' ? $orderReference : 'preview_order',
-            'merchant_name' => defined('TT_MERCHANT_NAME') ? TT_MERCHANT_NAME : 'TapTray',
+            'owner_display_name' => defined('TT_MERCHANT_NAME') ? TT_MERCHANT_NAME : 'TapTray',
             'currency' => defined('TT_MERCHANT_CURRENCY') ? TT_MERCHANT_CURRENCY : 'ISK',
             'totals' => [
                 'quantity' => 2,
@@ -60,7 +60,7 @@ if ($pendingOrder === null && ($testPayloadRaw !== '' || isset($_GET['test']))) 
         ];
     }
 }
-$merchantName = (string) (($pendingOrder['merchant_name'] ?? (defined('TT_MERCHANT_NAME') ? TT_MERCHANT_NAME : 'TapTray')));
+$merchantName = (string) (($pendingOrder['owner_display_name'] ?? $pendingOrder['owner_username'] ?? (defined('TT_MERCHANT_NAME') ? TT_MERCHANT_NAME : 'TapTray')));
 $currency = (string) (($pendingOrder['currency'] ?? (defined('TT_MERCHANT_CURRENCY') ? TT_MERCHANT_CURRENCY : 'ISK')));
 $amountMinor = (int) (($pendingOrder['totals']['amount_minor'] ?? 0));
 $totalQty = (int) (($pendingOrder['totals']['quantity'] ?? 0));
