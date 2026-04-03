@@ -45,6 +45,77 @@ logStep("JSItemDetails.js executed");
     return { title, description, price, image, allergens };
   }
 
+  function ownerInitials(name) {
+    const parts = String(name || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!parts.length) return "TT";
+    return parts
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join("");
+  }
+
+  function getRestaurantCards() {
+    const seen = new Map();
+    const addCard = (token, name, avatarUrl = "", bannerUrl = "", greetingText = "") => {
+      const safeToken = String(token || "").trim();
+      if (!safeToken || seen.has(safeToken)) return;
+      seen.set(safeToken, {
+        token: safeToken,
+        name: String(name || safeToken).trim() || safeToken,
+        avatarUrl: String(avatarUrl || "").trim(),
+        bannerUrl: String(bannerUrl || "").trim(),
+        greetingText: String(greetingText || "").trim()
+      });
+    };
+
+    if (window.currentOwner?.username || window.currentProfileUsername) {
+      addCard(
+        window.currentOwner?.username || window.currentProfileUsername,
+        window.currentOwner?.display_name || window.currentProfileUsername,
+        window.currentOwner?.avatar_url || "",
+        window.currentOwner?.appearance?.top_banner_url || "",
+        window.currentOwner?.appearance?.greeting_text || ""
+      );
+    }
+
+    document
+      .querySelectorAll(".group-item.invited-owner, .group-item.followed-owner, .group-item.owned-owner")
+      .forEach((row) => {
+        addCard(
+          row.dataset.group,
+          row.querySelector(".list-title")?.textContent?.trim() || row.dataset.group,
+          row.querySelector(".list-owner-avatar")?.getAttribute("src") || ""
+        );
+      });
+
+    return Array.from(seen.values());
+  }
+
+  async function getRestaurantCardsForPicker() {
+    try {
+      const res = await fetch("/getTapTrayRestaurantCards.php", {
+        credentials: "include"
+      });
+      const data = await res.json();
+      if (data?.status === "OK" && Array.isArray(data.restaurants) && data.restaurants.length) {
+        return data.restaurants.map((row) => ({
+          token: String(row?.token || "").trim(),
+          name: String(row?.name || row?.token || "").trim(),
+          avatarUrl: String(row?.avatar_url || "").trim(),
+          bannerUrl: String(row?.banner_url || "").trim(),
+          greetingText: String(row?.greeting_text || "").trim(),
+          link: String(row?.link || "").trim()
+        })).filter((row) => row.token);
+      }
+    } catch (error) {
+      console.error("getTapTrayRestaurantCards failed:", error);
+    }
+    return getRestaurantCards();
+  }
+
   function getSelectedRow() {
     const surrogate = String(window.currentSurrogate || "").trim();
     return surrogate
@@ -523,33 +594,45 @@ logStep("JSItemDetails.js executed");
     });
   }
 
-  function renderListWorkspace() {
+  async function renderListWorkspace() {
     const host = document.getElementById("pdfTabContent");
     if (!host) return;
-
-    const token = String(window.currentListToken || "").trim();
-    const listTitle =
-      document.getElementById(`list-title-${token}`)?.textContent?.trim() ||
-      document.getElementById("selectedItemTitle")?.textContent?.trim() ||
-      "Select an item";
+    const cards = await getRestaurantCardsForPicker();
 
     host.innerHTML = `
       <div class="tt-item-details">
-        <div class="tt-item-shell">
-          <div class="tt-item-main">
-            <div class="tt-item-header">
-              <div>
-                <div class="tt-item-kicker">Menu item details</div>
-                <h2 class="tt-item-view-title">${esc(listTitle)}</h2>
-              </div>
-            </div>
-            <div class="tt-item-view-copy">
-              <p>Select an item from the menu to open its details here.</p>
-            </div>
+        <div class="tt-owner-picker">
+          <div class="tt-owner-grid">
+            ${cards.map((card) => `
+              <button class="tt-owner-card" type="button" data-owner-token="${esc(card.token)}">
+                <div class="tt-owner-card-banner"${card.bannerUrl ? ` style="background-image:url('${esc(card.bannerUrl)}')"` : ""}>
+                  <div class="tt-owner-card-banner-overlay"></div>
+                  <div class="tt-owner-card-qr">
+                    <img src="${esc(qrImageUrl(`${window.location.origin}${card.link || `/${card.token}`}`))}" alt="QR code for ${esc(card.name)}">
+                  </div>
+                  <div class="tt-owner-card-media">
+                    ${card.avatarUrl
+                      ? `<img class="tt-owner-card-avatar" src="${esc(card.avatarUrl)}" alt="${esc(card.name)}">`
+                      : `<div class="tt-owner-card-fallback">${esc(ownerInitials(card.name))}</div>`}
+                  </div>
+                  <div class="tt-owner-card-copy">
+                    ${card.greetingText ? `<div class="tt-owner-card-greeting">${esc(card.greetingText)}</div>` : ``}
+                    <div class="tt-owner-card-name">${esc(card.name)}</div>
+                  </div>
+                </div>
+              </button>
+            `).join("")}
           </div>
         </div>
       </div>
     `;
+
+    host.querySelectorAll(".tt-owner-card").forEach((button) => {
+      button.addEventListener("click", () => {
+        const token = button.dataset.ownerToken || "";
+        if (token) window.viewOwnerProfile?.(token);
+      });
+    });
   }
 
   window.taptrayRefreshItemDetails = function taptrayRefreshItemDetails() {
@@ -594,3 +677,8 @@ logStep("JSItemDetails.js executed");
     }
   });
 })();
+  function qrImageUrl(url) {
+    const target = String(url || "").trim();
+    if (!target) return "";
+    return `https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=0&data=${encodeURIComponent(target)}`;
+  }

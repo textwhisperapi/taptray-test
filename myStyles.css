@@ -1272,7 +1272,17 @@ body[data-menu-skin="ep"] .group-item .list-menu-dropdown {
 
 
 /* Owner name in "Lists by" header */
+.sidebar-section-header .list-owner-text .list-label {
+  font-size: 12px;
+  line-height: 1.15;
+  font-weight: 700;
+  opacity: 0.92;
+}
+
 .sidebar-section-header .list-owner-text .list-name {
+  font-size: 17px;
+  line-height: 1.08;
+  font-weight: 800;
   white-space: normal;
   word-break: break-word;
   overflow: hidden;

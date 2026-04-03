@@ -431,6 +431,37 @@ function tt_orders_get_existing_processed(mysqli $mysqli, string $orderReference
     return $row;
 }
 
+function tt_orders_get_owner_payment_settings(mysqli $mysqli, string $ownerUsername): ?array {
+    $ownerUsername = trim($ownerUsername);
+    if ($ownerUsername === '') {
+        return null;
+    }
+
+    $stmt = $mysqli->prepare("
+        SELECT
+            s.member_id,
+            s.provider,
+            s.mode,
+            s.provider_wallet_id,
+            s.provider_account_id
+        FROM mmt_payment_settings s
+        JOIN members m ON m.id = s.member_id
+        WHERE m.username = ?
+        LIMIT 1
+    ");
+    if (!$stmt) {
+        return null;
+    }
+    $stmt->bind_param('s', $ownerUsername);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc() ?: null;
+    $stmt->close();
+    if (!$row) {
+        return null;
+    }
+    return $row;
+}
+
 function tt_orders_list_active_for_customer(mysqli $mysqli, string $customerToken): array {
     tt_orders_ensure_schema($mysqli);
     $stmt = $mysqli->prepare("

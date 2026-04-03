@@ -40,7 +40,7 @@ sec_session_start();
 $listOwnerUsername = $_SESSION['username'] ?? '';
 
 //Version is now se globally in service-worker.php
-$version = 'v184';
+$version = 'v194';
 
 
 header('Content-Type: text/html; charset=utf-8');
@@ -1054,22 +1054,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
         <!-- 🚀 Text Content (Default View) -->
         <div id="textTabContent" class="main-tab-content active">
-<div class="tt-item-details">
-  <div class="tt-item-shell">
-    <div class="tt-item-main">
-      <div class="tt-item-header">
-        <div>
-          <div class="tt-item-kicker">TapTray</div>
-          <h2>Legacy text area removed</h2>
-        </div>
-      </div>
-      <div class="taptray-tree-item-description">
-        Select a menu item to open the menu design view. The old dual-textarea editor is no longer part of this screen.
-      </div>
-    </div>
-  </div>
-</div>
-
         </div>
     
         <!-- TapTray item details container -->

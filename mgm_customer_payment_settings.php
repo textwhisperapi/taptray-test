@@ -12,6 +12,7 @@ function mgm_customer_payment_settings_ensure_schema(mysqli $mysqli): void {
         CREATE TABLE IF NOT EXISTS mmt_payment_settings (
             member_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
             provider VARCHAR(32) NOT NULL DEFAULT 'rapyd',
+            mode VARCHAR(16) NOT NULL DEFAULT 'test',
             provider_wallet_id VARCHAR(128) DEFAULT NULL,
             provider_account_id VARCHAR(128) DEFAULT NULL,
             access_key_enc TEXT DEFAULT NULL,
@@ -30,6 +31,7 @@ $selectedMemberId = max(0, (int)($_GET['member_id'] ?? 0));
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['mgm_action'] ?? '') === 'save_member_payment_settings') {
     $memberId = max(0, (int)($_POST['member_id'] ?? 0));
     $provider = preg_replace('/[^a-z0-9_]/', '', strtolower(trim((string)($_POST['provider'] ?? 'rapyd')))) ?: 'rapyd';
+    $mode = preg_replace('/[^a-z0-9_]/', '', strtolower(trim((string)($_POST['mode'] ?? 'test')))) ?: 'test';
     $providerWalletId = trim((string)($_POST['provider_wallet_id'] ?? ''));
     $providerAccountId = trim((string)($_POST['provider_account_id'] ?? ''));
 
@@ -40,17 +42,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['mgm_action'] ?? '') === 's
             INSERT INTO mmt_payment_settings (
                 member_id,
                 provider,
+                mode,
                 provider_wallet_id,
                 provider_account_id
-            ) VALUES (?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 provider = VALUES(provider),
+                mode = VALUES(mode),
                 provider_wallet_id = VALUES(provider_wallet_id),
                 provider_account_id = VALUES(provider_account_id)
         ");
 
         if ($stmt instanceof mysqli_stmt) {
-            $stmt->bind_param('isss', $memberId, $provider, $providerWalletId, $providerAccountId);
+            $stmt->bind_param('issss', $memberId, $provider, $mode, $providerWalletId, $providerAccountId);
             if ($stmt->execute()) {
                 $saveState = ['type' => 'ok', 'message' => 'Customer payment settings saved.'];
                 $selectedMemberId = $memberId;
@@ -87,6 +91,7 @@ $memberPaymentResult = $mysqli->query("
     SELECT
         ps.member_id,
         ps.provider,
+        ps.mode,
         ps.provider_wallet_id,
         ps.provider_account_id,
         ps.updated_at,
@@ -192,6 +197,14 @@ mgm_render_shell_start(
                 </select>
               </label>
               <label>
+                <span>Mode</span>
+                <?php $selectedMode = strtolower((string)($selectedMemberPayment['mode'] ?? 'test')); ?>
+                <select name="mode">
+                  <option value="test" <?= $selectedMode === 'test' ? 'selected' : '' ?>>Test</option>
+                  <option value="live" <?= $selectedMode === 'live' ? 'selected' : '' ?>>Live</option>
+                </select>
+              </label>
+              <label>
                 <span>Provider wallet ID</span>
                 <input type="text" name="provider_wallet_id" value="<?= mgm_h((string)($selectedMemberPayment['provider_wallet_id'] ?? '')) ?>" placeholder="ewallet_...">
               </label>
@@ -209,6 +222,7 @@ mgm_render_shell_start(
               <thead>
                 <tr>
                   <th>Provider</th>
+                  <th>Mode</th>
                   <th>Wallet</th>
                   <th>Account</th>
                   <th>Updated</th>
@@ -217,11 +231,12 @@ mgm_render_shell_start(
               <tbody>
                 <?php if (!$selectedMemberPayment): ?>
                   <tr>
-                    <td colspan="4">No payment settings saved yet for this customer.</td>
+                    <td colspan="5">No payment settings saved yet for this customer.</td>
                   </tr>
                 <?php else: ?>
                   <tr>
                     <td><?= mgm_h(strtoupper((string)($selectedMemberPayment['provider'] ?? ''))) ?></td>
+                    <td><?= mgm_h(strtoupper((string)($selectedMemberPayment['mode'] ?? 'test'))) ?></td>
                     <td><?= mgm_h((string)($selectedMemberPayment['provider_wallet_id'] ?? '')) ?></td>
                     <td><?= mgm_h((string)($selectedMemberPayment['provider_account_id'] ?? '')) ?></td>
                     <td><?= mgm_h(mgm_format_datetime((string)($selectedMemberPayment['updated_at'] ?? ''))) ?></td>

@@ -242,7 +242,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const deepLinkParams = new URLSearchParams(window.location.search || "");
   const hasChatDeepLink = !!(deepLinkParams.get("open_chat_token") || "").trim();
   if (window.innerWidth < 1200 && isRootOrUserOnly && !hasChatDeepLink) {
-    sidebar.classList.toggle("show", wasSidebarOpen());
+    sidebar.classList.remove("show");
+    rememberSidebarState(false);
   }
 
   // ✅ Hamburger toggle

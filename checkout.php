@@ -1,15 +1,28 @@
 <?php
 require_once __DIR__ . '/includes/db_connect.php';
 require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/taptray_orders.php';
 require_once __DIR__ . '/includes/sub_worldline_config.php';
 require_once __DIR__ . '/includes/sub_rapyd_config.php';
 sec_session_start();
 
 $requestedProvider = strtolower(trim((string) ($_GET['provider'] ?? '')));
+$requestedOrderReference = trim((string) ($_GET['order_reference'] ?? ''));
 $configuredProvider = strtolower(trim((string) (function_exists('tt_env_value') ? tt_env_value('TT_PAYMENT_PROVIDER', 'worldline') : 'worldline')));
-$paymentProvider = in_array($requestedProvider, ['worldline', 'rapyd'], true)
-  ? $requestedProvider
-  : (in_array($configuredProvider, ['worldline', 'rapyd'], true) ? $configuredProvider : 'worldline');
+$paymentProvider = in_array($configuredProvider, ['worldline', 'rapyd'], true) ? $configuredProvider : 'worldline';
+if ($requestedOrderReference !== '') {
+  $checkoutOrder = tt_orders_get_by_reference($mysqli, $requestedOrderReference);
+  $ownerUsername = trim((string) ($checkoutOrder['owner_username'] ?? ''));
+  $ownerPaymentSettings = $ownerUsername !== '' ? tt_orders_get_owner_payment_settings($mysqli, $ownerUsername) : null;
+  $ownerProvider = strtolower(trim((string) ($ownerPaymentSettings['provider'] ?? '')));
+  if (in_array($ownerProvider, ['worldline', 'rapyd'], true)) {
+    $paymentProvider = $ownerProvider;
+  } elseif (in_array($requestedProvider, ['worldline', 'rapyd'], true)) {
+    $paymentProvider = $requestedProvider;
+  }
+} elseif (in_array($requestedProvider, ['worldline', 'rapyd'], true)) {
+  $paymentProvider = $requestedProvider;
+}
 
 $ttMerchantConfig = [
   'paymentProvider' => $paymentProvider,

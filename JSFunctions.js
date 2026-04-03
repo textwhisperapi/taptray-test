@@ -1407,9 +1407,6 @@ function buildTapTrayExpandedItemMarkup(parsed) {
   const allergens = parsed.allergens
     ? `<div class="taptray-tree-item-meta"><strong>Allergens:</strong> ${escapeHtml(parsed.allergens)}</div>`
     : "";
-  const price = parsed.price
-    ? `<div class="taptray-tree-item-price">${escapeHtml(parsed.price)}</div>`
-    : "";
   const expandedDescription = String(parsed.detailedDescription || parsed.description || "").trim();
   const description = expandedDescription
     ? `<div class="taptray-tree-item-description">${escapeHtml(expandedDescription)}</div>`
@@ -1420,7 +1417,6 @@ function buildTapTrayExpandedItemMarkup(parsed) {
       <div class="taptray-tree-item-media">${media}</div>
       <div class="taptray-tree-item-copy">
         ${title}
-        ${price}
         ${description}
         ${allergens}
       </div>
@@ -4942,7 +4938,6 @@ window.renderOwnerLists = async function (ownerToken, lists, opts = {}) {
   );
   const ownerAppearance = window.currentOwner?.appearance || {};
   const greetingText = String(ownerAppearance.greeting_text || "").trim();
-  const effectiveGreeting = greetingText || ownerDisplayName;
 
   const listManager = document.getElementById("listManager");
   if (!listManager) return;
@@ -4960,7 +4955,7 @@ window.renderOwnerLists = async function (ownerToken, lists, opts = {}) {
            data-avatar-name="${escapeHtml(ownerDisplayName)}"
            onerror="twHandleAvatarError(this)" />
       <div class="list-owner-text">
-        <div class="list-label">${escapeHtml(effectiveGreeting)}</div>
+        ${greetingText ? `<div class="list-label">${escapeHtml(greetingText)}</div>` : ``}
         <div class="list-name">${escapeHtml(ownerDisplayName)}</div>
       </div>`
     : `<span class="list-name">${escapeHtml(label || "")}</span>`;
@@ -5425,6 +5420,8 @@ function viewOwnerProfile(token) {
   window.twOnPlayScopeChanged?.(token);
 
   console.log(`👤 Viewing owner profile: ${token}`);
+
+  document.getElementById("sidebarContainer")?.classList.add("show");
 
   // update the URL
   window.history.pushState({}, "", `/${token}`);
