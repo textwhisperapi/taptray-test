@@ -40,7 +40,7 @@ sec_session_start();
 $listOwnerUsername = $_SESSION['username'] ?? '';
 
 //Version is now se globally in service-worker.php
-$version = 'v201';
+$version = 'v202';
 
 
 header('Content-Type: text/html; charset=utf-8');
@@ -1056,54 +1056,8 @@ document.addEventListener("DOMContentLoaded", () => {
         <div id="textTabContent" class="main-tab-content">
         </div>
     
-        <!-- TapTray item details container -->
-        <div id="pdfTabContent" class="main-tab-content active">
-          <div id="taptrayItemDetails" class="tt-item-details">
-            <div class="tt-item-shell">
-              <div id="ttItemMedia" class="tt-item-media">
-                <div class="tt-item-media-placeholder">Food image preview</div>
-              </div>
-              <div class="tt-item-main">
-                <div class="tt-item-header">
-                  <div>
-                    <div id="ttItemKicker" class="tt-item-kicker">Menu item details</div>
-                    <h2 id="ttItemTitle">Select an item</h2>
-                  </div>
-                  <div id="ttItemPriceWrap" class="tt-item-price-wrap">
-                    <label for="ttItemPrice">Price</label>
-                    <input id="ttItemPrice" class="tt-input" type="text" placeholder="e.g. 3490 ISK">
-                  </div>
-                </div>
-                <div class="tt-item-grid">
-                  <div class="tt-field">
-                    <label for="ttItemShortDescription">Short description</label>
-                    <textarea id="ttItemShortDescription" class="tt-textarea" rows="3" placeholder="Short customer-facing description"></textarea>
-                  </div>
-                  <div class="tt-field">
-                    <label for="ttItemDetailedDescription">Detailed description</label>
-                    <textarea id="ttItemDetailedDescription" class="tt-textarea" rows="5" placeholder="Expanded customer-facing description"></textarea>
-                  </div>
-                  <div id="ttItemImageField" class="tt-field">
-                    <label for="ttItemImage">Food image URL</label>
-                    <input id="ttItemImage" class="tt-input" type="url" placeholder="https://example.com/dish.jpg">
-                  </div>
-                  <div class="tt-field">
-                    <label for="ttItemAllergens">Allergens</label>
-                    <input id="ttItemAllergens" class="tt-input" type="text" placeholder="e.g. dairy, nuts, shellfish">
-                  </div>
-                  <div id="ttItemToggleRow" class="tt-field tt-toggle-row">
-                    <label class="tt-check"><input id="ttItemAvailable" type="checkbox" checked> Available now</label>
-                    <label class="tt-check"><input id="ttItemFeatured" type="checkbox"> Featured item</label>
-                  </div>
-                </div>
-                <div id="ttItemNotesBlock" class="tt-item-notes">
-                  <div class="tt-item-notes-label">Internal recipe / prep notes</div>
-                  <textarea id="ttItemNotesInput" class="tt-textarea tt-item-notes-input" rows="10" placeholder="Kitchen prep, recipe details, plating notes"></textarea>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- TapTray cards/details host -->
+        <div id="pdfTabContent" class="main-tab-content active"></div>
 
         <div id="importTabContent" class="main-tab-content"></div>
         
