@@ -40,7 +40,7 @@ sec_session_start();
 $listOwnerUsername = $_SESSION['username'] ?? '';
 
 //Version is now se globally in service-worker.php
-$version = 'v196';
+$version = 'v197';
 
 
 header('Content-Type: text/html; charset=utf-8');
@@ -1053,11 +1053,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     
         <!-- 🚀 Text Content (Default View) -->
-        <div id="textTabContent" class="main-tab-content active">
+        <div id="textTabContent" class="main-tab-content">
         </div>
     
         <!-- TapTray item details container -->
-        <div id="pdfTabContent" class="main-tab-content">
+        <div id="pdfTabContent" class="main-tab-content active">
           <div id="taptrayItemDetails" class="tt-item-details">
             <div class="tt-item-shell">
               <div id="ttItemMedia" class="tt-item-media">
