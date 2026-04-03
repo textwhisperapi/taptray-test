@@ -1828,6 +1828,8 @@ function openTapTrayOrderBarFromDeepLink() {
   const targetOrderRef = String(params.get("taptray_order") || "").trim();
   if (!targetOrderRef) return;
 
+  window.restoreTapTrayMobileSidebar?.();
+
   const bar = document.getElementById("taptrayOrderBar");
   if (!bar || bar.hidden) return;
 

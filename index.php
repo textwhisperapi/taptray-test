@@ -40,7 +40,7 @@ sec_session_start();
 $listOwnerUsername = $_SESSION['username'] ?? '';
 
 //Version is now se globally in service-worker.php
-$version = 'v197';
+$version = 'v201';
 
 
 header('Content-Type: text/html; charset=utf-8');

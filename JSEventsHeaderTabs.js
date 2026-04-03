@@ -235,15 +235,20 @@ document.addEventListener("DOMContentLoaded", function () {
     return;
   }
 
-  // On first open, default the mobile sidebar to visible. After that,
-  // preserve the user's explicit open/closed choice in session storage.
   const pathSegments = window.location.pathname.split("/").filter(Boolean);
-  const isRootOrUserOnly = pathSegments.length <= 1;
+  const hasProfileInUrl = pathSegments.length >= 1;
+  const hasSelectedProfile =
+    !!String(window.currentProfileUsername || window.currentOwnerToken || "").trim();
   const deepLinkParams = new URLSearchParams(window.location.search || "");
   const hasChatDeepLink = !!(deepLinkParams.get("open_chat_token") || "").trim();
-  if (window.innerWidth < 1200 && isRootOrUserOnly && !hasChatDeepLink) {
-    sidebar.classList.remove("show");
-    rememberSidebarState(false);
+  const hasTapTrayOrderDeepLink = !!(deepLinkParams.get("taptray_order") || "").trim();
+  if (window.innerWidth < 1200) {
+    if (hasProfileInUrl || hasSelectedProfile || hasTapTrayOrderDeepLink) {
+      sidebar.classList.add("show");
+    } else if (!hasChatDeepLink) {
+      sidebar.classList.remove("show");
+      rememberSidebarState(false);
+    }
   }
 
   // ✅ Hamburger toggle
@@ -472,6 +477,9 @@ window.switchTab = function (targetId) {
   }
 };
 
+  const isTapTrayGuest =
+    document.body?.dataset?.appMode === "taptray" &&
+    !document.body.classList.contains("logged-in");
   const hasSelectedItem = !!(window.currentSurrogate && String(window.currentSurrogate) !== "0");
   const savedSessionTab = String(sessionStorage.getItem(TAB_STORAGE_KEY) || "");
   const savedLocalTab = String(localStorage.getItem(TAB_STORAGE_KEY) || "");
@@ -479,15 +487,14 @@ window.switchTab = function (targetId) {
     savedSessionTab === "pdfTab" || savedSessionTab === "textTab"
       ? savedSessionTab
       : (savedLocalTab === "pdfTab" || savedLocalTab === "textTab" ? savedLocalTab : "");
-  if (preferredStartupTab) {
+
+  if (document.body?.dataset?.appMode === "taptray" && !hasSelectedItem) {
+    window.switchTab("pdfTab");
+  } else if (preferredStartupTab) {
     window.switchTab(preferredStartupTab);
   } else if (hasSelectedItem) {
     window.switchTab("pdfTab");
   }
-
-  const isTapTrayGuest =
-    document.body?.dataset?.appMode === "taptray" &&
-    !document.body.classList.contains("logged-in");
 
   // Keep footer selection and visible content in sync (profile switches can desync).
   var syncingTabs = false;
