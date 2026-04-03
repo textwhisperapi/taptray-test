@@ -334,6 +334,22 @@ function tt_orders_upsert_paid_order(mysqli $mysqli, array $order): ?array {
         return null;
     }
 
+    $existing = tt_orders_get_by_reference($mysqli, $normalized['reference']);
+    if ($existing) {
+        if ($normalized['owner_id'] === null && (int) ($existing['owner_id'] ?? 0) > 0) {
+            $normalized['owner_id'] = (int) $existing['owner_id'];
+        }
+        if ($normalized['owner_username'] === '' && trim((string) ($existing['owner_username'] ?? '')) !== '') {
+            $normalized['owner_username'] = trim((string) $existing['owner_username']);
+        }
+        if ($normalized['order_name'] === '' && trim((string) ($existing['order_name'] ?? '')) !== '') {
+            $normalized['order_name'] = trim((string) $existing['order_name']);
+        }
+        if (($normalized['items_json'] === '[]' || $normalized['items_json'] === '') && trim((string) ($existing['items_json'] ?? '')) !== '') {
+            $normalized['items_json'] = (string) $existing['items_json'];
+        }
+    }
+
     $customerToken = tt_orders_customer_token();
     $customerUsername = isset($_SESSION['username']) ? trim((string) $_SESSION['username']) : '';
 
