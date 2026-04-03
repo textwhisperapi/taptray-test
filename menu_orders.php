@@ -108,15 +108,15 @@ function tt_menu_orders_display_name(array $order): string {
     #ordersRoot .card button[data-action="ready"].is-active { appearance: none !important; -webkit-appearance: none !important; background-image: none !important; background-color: #5b8f79 !important; color: #ffffff !important; border-color: #497664 !important; }
     #ordersRoot .card button[data-action="closed"].is-active { background: #eceff4 !important; color: #536172 !important; border-color: #cfd7e1 !important; }
     .empty { color: #667389; }
-    .order-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px; }
-    .item-line { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 18px; background: var(--soft); border: 1px solid #e1e8f2; }
-    .item-thumb { width: 56px; height: 56px; border-radius: 14px; overflow: hidden; border: 1px solid #d7dfec; background: #ffffff; display: flex; align-items: center; justify-content: center; }
+    .order-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px; }
+    .item-line { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 12px; background: #f8fbff; border: 1px solid #e1e8f2; }
+    .item-thumb { width: 42px; height: 42px; border-radius: 10px; overflow: hidden; border: 1px solid #d7dfec; background: #ffffff; display: flex; align-items: center; justify-content: center; }
     .item-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .item-thumb-placeholder { color: #8a95a8; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
     .item-copy { min-width: 0; display: grid; gap: 2px; align-content: start; }
-    .item-name { font-size: 16px; font-weight: 800; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .item-notes { color: var(--muted); font-size: 13px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .item-qty { min-width: 48px; text-align: center; padding: 8px 10px; border-radius: 999px; background: #ffffff; border: 1px solid #d5deea; font-size: 16px; font-weight: 900; color: #314056; align-self: center; }
+    .item-name { font-size: 14px; font-weight: 800; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-notes { color: var(--muted); font-size: 12px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-qty { min-width: 40px; text-align: center; padding: 6px 8px; border-radius: 999px; background: #ffffff; border: 1px solid #d5deea; font-size: 14px; font-weight: 800; color: #314056; align-self: center; }
     .recipe-panel-backdrop { position: fixed; inset: 0; background: rgba(17, 25, 40, .38); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
     .recipe-panel-backdrop.is-open { display: flex; }
     .recipe-panel { width: min(760px, 100%); max-height: min(80vh, 760px); overflow: hidden; background: #ffffff; border: 1px solid #d8dfef; border-radius: 18px; box-shadow: 0 18px 40px rgba(31,42,70,.14); display: flex; flex-direction: column; }
@@ -143,9 +143,9 @@ function tt_menu_orders_display_name(array $order): string {
       .order-body { grid-template-columns: 1fr; }
       .actions-rail { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .order-items { grid-template-columns: 1fr; }
-      .item-line { grid-template-columns: 56px minmax(0, 1fr) auto; }
+      .item-line { grid-template-columns: 42px minmax(0, 1fr) auto; }
       .item-qty { justify-self: start; }
-      .item-thumb { width: 56px; height: 56px; border-radius: 14px; }
+      .item-thumb { width: 42px; height: 42px; border-radius: 10px; }
       .inline-tools { justify-content: flex-start; }
       .detail-panel { grid-template-columns: 1fr; }
       .detail-panel-media { max-width: 240px; }
@@ -360,24 +360,29 @@ function tt_menu_orders_item_rows(array $order): string {
         .replace(/'/g, "&#39;");
     }
 
-    function resolveRestaurantLabel(card) {
+    function getParentSelectedProfileUsername() {
       const parentWin = window.parent && window.parent !== window ? window.parent : null;
-      return String(parentWin?.currentOwner?.display_name || "").trim();
+      return String(parentWin?.currentProfileUsername || "").trim();
+    }
+
+    function getParentSelectedProfileLabel() {
+      const parentWin = window.parent && window.parent !== window ? window.parent : null;
+      const labelNode = parentWin?.document?.getElementById("homeCurrentProfileLabel");
+      const fromHeader = String(labelNode?.textContent || "").trim();
+      if (fromHeader) return fromHeader;
+      return getParentSelectedProfileUsername();
+    }
+
+    function resolveRestaurantLabel(card) {
+      return getParentSelectedProfileLabel();
     }
 
     function resolveOwnerDisplayName() {
-      const parentWin = window.parent && window.parent !== window ? window.parent : null;
-      const fromParent = String(parentWin?.currentOwner?.display_name || parentWin?.currentOwner?.username || "").trim();
-      if (fromParent) return fromParent;
-      const params = new URLSearchParams(window.location.search);
-      return String(params.get("owner") || "").trim();
+      return getParentSelectedProfileLabel();
     }
 
     function resolveOwnerUsername() {
-      const parentWin = window.parent && window.parent !== window ? window.parent : null;
-      const fromParent = String(parentWin?.currentOwner?.username || "").trim();
-      if (fromParent) return fromParent;
-      return "";
+      return getParentSelectedProfileUsername();
     }
 
     function renderStateButtons(status) {

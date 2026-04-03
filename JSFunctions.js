@@ -1667,7 +1667,6 @@ function renderTapTrayOrderRow(item, options = {}) {
           <div class="item-square-actions">
             ${actionHtml}
           </div>
-          ${orderMeta ? `<div class="taptray-order-side-meta">${escapeHtml(orderMeta)}</div>` : ""}
         </div>
       </div>
     </div>
@@ -4711,6 +4710,10 @@ logStep("Started loading lists");
     window.currentOwner = data.owner;
     window.currentProfileUsername = data.owner?.username || ownerToken;
     window.currentProfileToken = ownerToken;
+    const selectedItemTitle = document.getElementById("selectedItemTitle");
+    if (selectedItemTitle && (!window.currentSurrogate || window.currentSurrogate === "0")) {
+      selectedItemTitle.textContent = data.owner?.display_name || ownerToken;
+    }
     window.twApplyProfileAppearance?.(data.owner);
     window.twRememberLastProfile?.(window.currentProfileUsername);
     window.twOnPlayScopeChanged?.(ownerToken);
@@ -4719,6 +4722,7 @@ logStep("Started loading lists");
     twSetSidebarCompactMode(canManageProfile);
     updateHomeDropdownCurrentProfile(data.owner, ownerToken);
     updateHomeRecentProfiles(data.owner, ownerToken);
+    window.twFetchPlayOwnerStatus?.();
     listManager.innerHTML = "";
 
     if (data.owned?.length) {
@@ -5439,6 +5443,11 @@ function viewOwnerProfile(token) {
   } else {
     location.href = `/${token}`; // fallback: hard reload
   }
+  setTimeout(() => {
+    const kitchenFrame = document.querySelector('#homeTabContent iframe[src^="/menu_orders.php"]');
+    if (!kitchenFrame) return;
+    window.showHomeTab?.("/menu_orders.php");
+  }, 80);
 }
 
 
